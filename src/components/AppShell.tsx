@@ -152,9 +152,7 @@ function SidebarContent({
   return (
     <>
       <div className="flex items-center gap-3 border-b border-graphite-200 px-5 py-4 dark:border-graphite-800">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-500 shadow-md shadow-accent-500/20">
-          <Wrench className="h-5 w-5 text-white" strokeWidth={2.5} />
-        </div>
+        <img src="/logo.png" alt="German Tech" className="h-10 w-10 rounded-lg object-contain bg-black p-0.5" />
         <div>
           <p className="text-sm font-bold text-graphite-900 dark:text-white">German Tech</p>
           <p className="text-2xs text-graphite-500">Workshop Manager</p>

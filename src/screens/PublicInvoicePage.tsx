@@ -107,10 +107,13 @@ export default function PublicInvoicePage() {
         <div className="rounded-2xl border border-graphite-200 bg-white p-6 shadow-sm dark:border-graphite-800 dark:bg-graphite-900 lg:p-8 print:border-none print:shadow-none">
           {/* Header */}
           <div className="flex items-start justify-between border-b border-graphite-200 pb-5 dark:border-graphite-700">
-            <div>
-              <h2 className="text-xl font-bold text-graphite-900 dark:text-white">{workshopName}</h2>
-              <p className="mt-1 text-xs text-graphite-500 max-w-xs">{workshopAddress}</p>
-              <p className="mt-1 text-xs text-graphite-500">{workshopPhone}</p>
+            <div className="flex items-start gap-3.5">
+              <img src="/logo.png" alt="German Tech" className="h-14 w-14 rounded-xl object-contain bg-black p-1 shadow-sm" />
+              <div>
+                <h2 className="text-xl font-bold text-graphite-900 dark:text-white">{workshopName}</h2>
+                <p className="mt-1 text-xs text-graphite-500 max-w-xs">{workshopAddress}</p>
+                <p className="mt-1 text-xs text-graphite-500">{workshopPhone}</p>
+              </div>
             </div>
             <div className="text-right">
               <h2 className="text-lg font-bold text-graphite-900 dark:text-white">INVOICE</h2>

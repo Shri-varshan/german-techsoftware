@@ -63,12 +63,23 @@ export default function SettingsScreen() {
         </div>
 
         <div>
+          <label className="input-label">Workshop Logo</label>
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-graphite-100 dark:bg-graphite-800">
+            <img src={settings.logo_url || '/logo.png'} alt="German Tech" className="h-12 w-12 object-contain rounded-lg bg-black p-1 shadow" />
+            <div>
+              <p className="text-xs font-semibold text-graphite-900 dark:text-white">German Tech Official Logo</p>
+              <p className="text-2xs text-graphite-500">Appears on invoices, browser favicon, and customer QR pages</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
           <label className="input-label">Invoice prefix</label>
           <input className="input-field" value={settings.invoice_prefix} onChange={(e) => setSettings({ ...settings, invoice_prefix: e.target.value })} maxLength={5} />
         </div>
 
         <div>
-          <label className="input-label">Logo URL</label>
+          <label className="input-label">Custom Logo URL (Optional)</label>
           <input className="input-field" value={settings.logo_url} onChange={(e) => setSettings({ ...settings, logo_url: e.target.value })} placeholder="https://…" />
         </div>
 

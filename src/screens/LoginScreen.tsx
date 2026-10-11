@@ -45,11 +45,9 @@ export default function LoginScreen() {
         <div className="absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-accent-700/10 blur-3xl" />
 
         <div className="relative z-10 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent-500 shadow-lg shadow-accent-500/30">
-            <Wrench className="h-6 w-6 text-white" strokeWidth={2.5} />
-          </div>
+          <img src="/logo.png" alt="German Tech" className="h-14 w-14 rounded-xl object-contain bg-black/60 p-1 shadow-lg border border-graphite-800" />
           <div>
-            <h1 className="text-lg font-bold text-white">German Tech</h1>
+            <h1 className="text-xl font-bold text-white">German Tech</h1>
             <p className="text-xs text-graphite-400">Workshop Manager</p>
           </div>
         </div>

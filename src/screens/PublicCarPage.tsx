@@ -57,9 +57,7 @@ export default function PublicCarPage() {
       <header className="sticky top-0 z-10 border-b border-graphite-200 bg-white/80 backdrop-blur-md dark:border-graphite-800 dark:bg-graphite-900/80">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-500">
-              <Wrench className="h-4 w-4 text-white" strokeWidth={2.5} />
-            </div>
+            <img src="/logo.png" alt="German Tech" className="h-8 w-8 rounded-lg object-contain bg-black p-0.5" />
             <span className="text-sm font-bold text-graphite-900 dark:text-white">{workshopName}</span>
           </div>
           <span className="text-2xs text-graphite-400">Service History</span>
