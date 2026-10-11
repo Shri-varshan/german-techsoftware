@@ -119,14 +119,11 @@ export default function JobDetailScreen() {
   async function handleAiScan(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files || !e.target.files[0] || !job) return;
     const file = e.target.files[0];
-    
-    let apiKey = import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem('gemini_api_key');
-    if (!apiKey) {
-      apiKey = prompt('Please enter your Gemini API Key to use the AI Scanner:');
-      if (!apiKey) return;
-      localStorage.setItem('gemini_api_key', apiKey);
+    const groqKey = import.meta.env.VITE_GROQ_API_KEY || localStorage.getItem('gt-groq-key');
+    if (!groqKey) {
+      alert('Missing Groq API Key. Please ensure VITE_GROQ_API_KEY is configured in Vercel settings.');
+      return;
     }
-
     setAiScanning(true);
     try {
       const reader = new FileReader();
@@ -137,7 +134,7 @@ export default function JobDetailScreen() {
             const canvas = document.createElement('canvas');
             let width = img.width;
             let height = img.height;
-            const max = 1200; // Good enough for reading text
+            const max = 1600;
             
             if (width > height && width > max) {
               height = Math.round((height * max) / width);
@@ -152,27 +149,47 @@ export default function JobDetailScreen() {
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0, width, height);
             
-            // Get base64 without the data:image/jpeg;base64, prefix
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-            const base64Data = dataUrl.split(',')[1];
+            // Step 1: Run local OCR on the photo
+            const Tesseract = (await import('tesseract.js')).default;
+            const { data: { text } } = await Tesseract.recognize(canvas, 'eng');
             
-            const { GoogleGenerativeAI } = await import('@google/generative-ai');
-            const genAI = new GoogleGenerativeAI(apiKey!);
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-            
-            const promptStr = "Extract all spare parts and labour charges from this handwritten invoice/bill. Return ONLY a JSON object with exactly two keys: 'parts' (array of objects with 'part_name' (string), 'quantity' (pure number), 'unit_price' (pure number, no commas)) and 'labour' (array of objects with 'description' (string) and 'amount' (pure number, no commas)). Output nothing but the raw JSON object starting with { and ending with }.";
-            
-            const result = await model.generateContent([
-              promptStr,
-              { inlineData: { data: base64Data, mimeType: 'image/jpeg' } }
-            ]);
-            
-            const responseText = result.response.text();
-            
-            // Robust JSON extraction
+            if (!text || text.trim().length < 3) {
+              alert('Could not read text clearly from this image. Please take a clearer, well-lit photo of the bill.');
+              setAiScanning(false);
+              return;
+            }
+
+            // Step 2: Use high-speed Groq engine to extract parts and labour
+            const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${groqKey}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                model: 'openai/gpt-oss-120b',
+                messages: [
+                  {
+                    role: 'system',
+                    content: 'You extract spare parts and labour charges from bill OCR text. Return ONLY a valid JSON object with exactly two keys: "parts" (array of objects with "part_name" (string), "quantity" (number), "unit_price" (number)) and "labour" (array of objects with "description" (string), "amount" (number)). Output nothing but the raw JSON object starting with { and ending with }.'
+                  },
+                  {
+                    role: 'user',
+                    content: text
+                  }
+                ],
+                response_format: { type: 'json_object' }
+              })
+            });
+
+            const groqRes = await res.json();
+            if (groqRes.error) {
+              throw new Error(groqRes.error.message || 'Groq AI error');
+            }
+
+            const responseText = groqRes.choices?.[0]?.message?.content || '{}';
             const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) throw new Error('No JSON object found in response');
-            
+            if (!jsonMatch) throw new Error('No valid JSON extracted from bill');
             const parsed = JSON.parse(jsonMatch[0]);
             
             // Insert parts into database
