@@ -142,27 +142,23 @@ export default function PublicInvoicePage() {
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-y border-graphite-200 dark:border-graphite-700">
-                <th className="py-2 text-left text-2xs font-semibold uppercase tracking-wide text-graphite-400">Description</th>
-                <th className="py-2 text-right text-2xs font-semibold uppercase tracking-wide text-graphite-400">Qty</th>
-                <th className="py-2 text-right text-2xs font-semibold uppercase tracking-wide text-graphite-400">Rate</th>
-                <th className="py-2 text-right text-2xs font-semibold uppercase tracking-wide text-graphite-400">Amount</th>
+                <th className="py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-graphite-500">Description</th>
+                <th className="py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-graphite-500">Amount</th>
               </tr>
             </thead>
             <tbody>
               {parts.map((p, idx) => (
                 <tr key={idx} className="border-b border-graphite-100 dark:border-graphite-800">
-                  <td className="py-2.5 text-sm text-graphite-900 dark:text-white">{p.part_name}</td>
-                  <td className="py-2.5 text-right text-sm tabular-nums text-graphite-700 dark:text-graphite-300">{p.quantity}</td>
-                  <td className="py-2.5 text-right text-sm tabular-nums text-graphite-700 dark:text-graphite-300">{formatINR(p.unit_price)}</td>
-                  <td className="py-2.5 text-right text-sm font-semibold tabular-nums text-graphite-900 dark:text-white">{formatINR(p.quantity * p.unit_price)}</td>
+                  <td className="py-3 text-sm text-graphite-900 dark:text-white">
+                    {p.part_name} {p.quantity > 1 && <span className="text-xs text-graphite-400 font-medium">(Qty: {p.quantity})</span>}
+                  </td>
+                  <td className="py-3 text-right text-sm font-semibold tabular-nums text-graphite-900 dark:text-white">{formatINR(p.quantity * p.unit_price)}</td>
                 </tr>
               ))}
               {labour.map((l, idx) => (
                 <tr key={idx} className="border-b border-graphite-100 dark:border-graphite-800">
-                  <td className="py-2.5 text-sm text-graphite-900 dark:text-white">{l.description}</td>
-                  <td className="py-2.5 text-right text-sm tabular-nums text-graphite-700 dark:text-graphite-300">{l.hours > 0 ? l.hours : '-'}</td>
-                  <td className="py-2.5 text-right text-sm tabular-nums text-graphite-700 dark:text-graphite-300">{l.hours > 0 ? formatINR(l.rate) : '-'}</td>
-                  <td className="py-2.5 text-right text-sm font-semibold tabular-nums text-graphite-900 dark:text-white">{formatINR(l.fixed_amount > 0 ? l.fixed_amount : l.hours * l.rate)}</td>
+                  <td className="py-3 text-sm text-graphite-900 dark:text-white">{l.description}</td>
+                  <td className="py-3 text-right text-sm font-semibold tabular-nums text-graphite-900 dark:text-white">{formatINR(l.fixed_amount > 0 ? l.fixed_amount : l.hours * l.rate)}</td>
                 </tr>
               ))}
             </tbody>
