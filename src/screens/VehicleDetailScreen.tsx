@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { Car, Phone, Mail, MapPin, QrCode, Printer, MessageCircle, ArrowLeft, Calendar, Gauge, Palette, Fuel, Hash, Edit2, Check, Trash2 } from 'lucide-react';
+import { Car, Phone, Mail, MapPin, QrCode, Printer, MessageCircle, ArrowLeft, Calendar, Gauge, Palette, Fuel, Hash, Edit2, Check, Trash2, ChevronRight } from 'lucide-react';
 import { supabase, type Vehicle, type Job } from '@/lib/supabase';
 import { formatDate, formatINR, maskPlate } from '@/lib/constants';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
@@ -277,9 +277,7 @@ export default function VehicleDetailScreen() {
                     <p className="text-xs text-graphite-500">{formatDate(job.job_date)} · {job.km_reading.toLocaleString('en-IN')} km</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-graphite-400">{job.assigned_mechanic || 'Unassigned'}</p>
-                </div>
+                <ChevronRight className="h-5 w-5 text-graphite-300" />
               </Link>
             ))}
           </div>

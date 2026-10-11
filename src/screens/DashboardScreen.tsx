@@ -114,7 +114,6 @@ export default function DashboardScreen() {
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-graphite-400">{formatDate(job.job_date)}</p>
-                  <p className="text-2xs text-graphite-400">{job.assigned_mechanic || 'Unassigned'}</p>
                 </div>
               </Link>
             ))}

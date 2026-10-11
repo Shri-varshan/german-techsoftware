@@ -554,10 +554,8 @@ export default function JobDetailScreen() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-graphite-500">
-            <span>📅 {formatDate(job.job_date)}</span>
-            <span>·</span>
-            <span>👨‍🔧 {job.assigned_mechanic || 'Unassigned'}</span>
+          <div className="flex items-center gap-2 text-xs text-graphite-500 font-medium">
+            <span>📅 Date: {formatDate(job.job_date)}</span>
           </div>
         </div>
       </div>
