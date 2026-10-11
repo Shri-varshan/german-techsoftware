@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Package, Clock, CheckCircle2, AlertTriangle, Lock, Mic } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Package, Clock, CheckCircle2, AlertTriangle, Lock, Mic, Gauge } from 'lucide-react';
 import { supabase, type Job, type JobPart, type JobLabour, type Vehicle, type Invoice } from '@/lib/supabase';
 import { formatINR, formatDate, maskPlate } from '@/lib/constants';
 
@@ -503,36 +503,13 @@ export default function JobDetailScreen() {
       </Link>
 
       {/* Job header */}
-      <div className="card">
+      <div className="card space-y-4">
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-lg font-bold text-graphite-900 dark:text-white">{job.complaint}</h2>
-            <p className="text-sm text-graphite-500 mt-1">
-              {job.vehicle?.make} {job.vehicle?.model} · {maskPlate(job.vehicle?.number_plate ?? '')} · {job.vehicle?.customer?.name}
+            <h2 className="text-xl font-bold text-graphite-900 dark:text-white">{job.complaint}</h2>
+            <p className="text-sm font-medium text-graphite-500 mt-1">
+              {job.vehicle?.make} {job.vehicle?.model} · <span className="font-semibold text-graphite-700 dark:text-graphite-300">{maskPlate(job.vehicle?.number_plate ?? '')}</span> · {job.vehicle?.customer?.name}
             </p>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-xs text-graphite-400">{formatDate(job.job_date)} ·</span>
-              {!isLocked ? (
-                <div className="flex items-center gap-1 rounded bg-graphite-100 px-2 py-0.5 dark:bg-graphite-800">
-                  <input
-                    type="number"
-                    className="w-16 bg-transparent text-xs font-semibold tabular-nums text-graphite-900 outline-none dark:text-white"
-                    defaultValue={job.km_reading}
-                    onBlur={async (e) => {
-                      const val = Number(e.target.value);
-                      if (!isNaN(val) && val !== job.km_reading) {
-                        await supabase.from('jobs').update({ km_reading: val }).eq('id', job.id);
-                        loadJob(job.id);
-                      }
-                    }}
-                  />
-                  <span className="text-xs text-graphite-500">km</span>
-                </div>
-              ) : (
-                <span className="text-xs text-graphite-400">{job.km_reading.toLocaleString('en-IN')} km</span>
-              )}
-              <span className="text-xs text-graphite-400">· {job.assigned_mechanic || 'Unassigned'}</span>
-            </div>
           </div>
           {isLocked && (
             <div className="flex items-center gap-1.5 rounded-xl bg-signal-green/10 px-3 py-1.5 text-xs font-semibold text-signal-green">
@@ -541,7 +518,48 @@ export default function JobDetailScreen() {
           )}
         </div>
 
+        {/* Current KM Reading Block */}
+        <div className="rounded-xl border border-graphite-200 bg-graphite-50/80 p-3.5 dark:border-graphite-700 dark:bg-graphite-800/60 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent-500/10 text-accent-600 dark:text-accent-400">
+              <Gauge className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-2xs font-bold uppercase tracking-wider text-graphite-500 dark:text-graphite-400">Current KM Reading</p>
+              {!isLocked ? (
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="number"
+                    className="input-field py-1.5 px-3 text-base font-bold tabular-nums w-40 bg-white dark:bg-graphite-900 border-accent-500/30 focus:border-accent-500"
+                    placeholder="Enter current KM"
+                    defaultValue={job.km_reading}
+                    onBlur={async (e) => {
+                      const val = Number(e.target.value);
+                      if (!isNaN(val) && val !== job.km_reading) {
+                        await supabase.from('jobs').update({ km_reading: val }).eq('id', job.id);
+                        if (job.vehicle_id) {
+                          await supabase.from('vehicles').update({ current_km: val }).eq('id', job.vehicle_id);
+                        }
+                        loadJob(job.id);
+                      }
+                    }}
+                  />
+                  <span className="text-sm font-bold text-graphite-500">KM</span>
+                </div>
+              ) : (
+                <p className="text-base font-bold text-graphite-900 dark:text-white mt-1">
+                  {job.km_reading.toLocaleString('en-IN')} <span className="text-sm font-normal text-graphite-500">KM</span>
+                </p>
+              )}
+            </div>
+          </div>
 
+          <div className="flex items-center gap-3 text-xs text-graphite-500">
+            <span>📅 {formatDate(job.job_date)}</span>
+            <span>·</span>
+            <span>👨‍🔧 {job.assigned_mechanic || 'Unassigned'}</span>
+          </div>
+        </div>
       </div>
 
       {/* Parts section */}
