@@ -11,7 +11,8 @@ interface JobWithVehicle extends Job {
 export default function DashboardScreen() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [activeJobs, setActiveJobs] = useState<JobWithVehicle[]>([]);
-  const [pendingInvoices, setPendingInvoices] = useState<Invoice[]>([]);
+  const [totalVehiclesCount, setTotalVehiclesCount] = useState(0);
+  const [totalInvoicesCount, setTotalInvoicesCount] = useState(0);
   const [todayCount, setTodayCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -22,21 +23,21 @@ export default function DashboardScreen() {
 
   async function loadDashboard() {
     setLoading(true);
-    const [vehiclesRes, jobsRes, invoicesRes, todayRes] = await Promise.all([
+    const [vehiclesRes, jobsRes, totalVehiclesRes, totalInvoicesRes, todayRes] = await Promise.all([
       supabase.from('vehicles').select('*, customer:customers(*)').order('created_at', { ascending: false }).limit(5),
       supabase.from('jobs').select('*, vehicle:vehicles(*, customer:customers(*))').in('status', ['received', 'in_progress', 'ready']).order('created_at', { ascending: false }),
-      supabase.from('invoices').select('*').in('payment_status', ['unpaid', 'partial']).order('created_at', { ascending: false }),
+      supabase.from('vehicles').select('id', { count: 'exact', head: true }),
+      supabase.from('invoices').select('id', { count: 'exact', head: true }),
       supabase.from('jobs').select('id').gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
     ]);
 
     setVehicles(vehiclesRes.data as Vehicle[] ?? []);
     setActiveJobs(jobsRes.data as JobWithVehicle[] ?? []);
-    setPendingInvoices(invoicesRes.data as Invoice[] ?? []);
+    setTotalVehiclesCount(totalVehiclesRes.count ?? 0);
+    setTotalInvoicesCount(totalInvoicesRes.count ?? 0);
     setTodayCount(todayRes.data?.length ?? 0);
     setLoading(false);
   }
-
-  const totalOutstanding = pendingInvoices.reduce((sum, inv) => sum + (inv.grand_total - (inv.payment_status === 'paid' ? inv.grand_total : 0)), 0);
 
   return (
     <div className="space-y-6">
@@ -44,8 +45,8 @@ export default function DashboardScreen() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard icon={Car} label="Today's cars" value={String(todayCount)} color="accent" />
         <StatCard icon={Wrench} label="Active jobs" value={String(activeJobs.length)} color="amber" />
-        <StatCard icon={FileText} label="Pending payments" value={String(pendingInvoices.length)} color="red" />
-        <StatCard icon={IndianRupee} label="Outstanding" value={formatINR(totalOutstanding)} color="red" />
+        <StatCard icon={Car} label="Total registered" value={String(totalVehiclesCount)} color="accent" />
+        <StatCard icon={FileText} label="Total invoices" value={String(totalInvoicesCount)} color="green" />
       </div>
 
       {/* Quick search */}

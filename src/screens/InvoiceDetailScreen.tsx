@@ -16,7 +16,6 @@ export default function InvoiceDetailScreen() {
   const [labour, setLabour] = useState<JobLabour[]>([]);
   const [settings, setSettings] = useState<WorkshopSettings | null>(null);
   const [loading, setLoading] = useState(true);
-  const [updatingPayment, setUpdatingPayment] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -48,16 +47,6 @@ export default function InvoiceDetailScreen() {
     setLoading(false);
   }
 
-  async function updatePayment(status: Invoice['payment_status'], mode: Invoice['payment_mode']) {
-    if (!invoice) return;
-    setUpdatingPayment(true);
-    await supabase.from('invoices').update({
-      payment_status: status,
-      payment_mode: mode,
-    }).eq('id', invoice.id);
-    setUpdatingPayment(false);
-    loadInvoice(invoice.id);
-  }
 
   async function sendWhatsApp() {
     if (!invoice?.job?.vehicle?.customer?.phone) return;
@@ -209,12 +198,4 @@ export default function InvoiceDetailScreen() {
   );
 }
 
-function PaymentBadge({ status }: { status: string }) {
-  const config: Record<string, { label: string; class: string }> = {
-    unpaid: { label: 'Unpaid', class: 'bg-signal-red/10 text-signal-red' },
-    partial: { label: 'Partial', class: 'bg-signal-amber/10 text-signal-amber' },
-    paid: { label: 'Paid', class: 'bg-signal-green/10 text-signal-green' },
-  };
-  const c = config[status] ?? config.unpaid;
-  return <span className={`pill ${c.class}`}>{c.label}</span>;
-}
+
