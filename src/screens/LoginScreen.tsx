@@ -1,14 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wrench, Mail, Lock, User, Shield, ChevronRight, Zap } from 'lucide-react';
+import { Wrench, Mail, Lock, User, Shield, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 
 export default function LoginScreen() {
-  const { signIn, signUp, signInAsGuest } = useAuth();
+  const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('Germantech@gmail.com');
+  const [password, setPassword] = useState('Germantech');
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<'owner' | 'staff'>('owner');
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +20,11 @@ export default function LoginScreen() {
     setLoading(true);
     if (mode === 'signin') {
       const { error } = await signIn(email, password);
-      if (error) setError(error);
+      if (error) {
+        setError(error);
+      } else {
+        navigate('/app');
+      }
     } else {
       const { error } = await signUp(email, password, fullName, role);
       if (error) setError(error);
@@ -30,11 +34,6 @@ export default function LoginScreen() {
       }
     }
     setLoading(false);
-  }
-
-  function handleGuest() {
-    signInAsGuest();
-    navigate('/app');
   }
 
   return (
@@ -195,23 +194,6 @@ export default function LoginScreen() {
             >
               {mode === 'signin' ? 'Create one' : 'Sign in'}
             </button>
-          </p>
-
-          {/* Guest access divider */}
-          <div className="mt-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-graphite-200 dark:bg-graphite-700" />
-            <span className="text-2xs font-semibold uppercase tracking-wide text-graphite-400">or</span>
-            <div className="h-px flex-1 bg-graphite-200 dark:bg-graphite-700" />
-          </div>
-
-          <button
-            onClick={handleGuest}
-            className="btn-secondary mt-4 w-full"
-          >
-            <Zap className="h-4 w-4 text-accent-500" /> Enter as Guest — no account needed
-          </button>
-
-          <p className="mt-4 text-center text-2xs text-graphite-400">\n            Guest mode gives full access to all workshop features without signing up
           </p>
         </div>
       </div>

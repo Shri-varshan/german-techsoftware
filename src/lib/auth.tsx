@@ -30,6 +30,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isGuest, setIsGuest] = useState(() => localStorage.getItem('gt-guest') === 'true');
 
   useEffect(() => {
+    const savedUser = localStorage.getItem('gt-auth-user');
+    if (savedUser) {
+      try {
+        setProfile(JSON.parse(savedUser));
+        setLoading(false);
+        return;
+      } catch {
+        localStorage.removeItem('gt-auth-user');
+      }
+    }
+
     if (isGuest) {
       setProfile(GUEST_PROFILE);
       setLoading(false);
@@ -50,8 +61,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (newSession) {
         loadProfile(newSession.user.id);
       } else {
-        setProfile(null);
-        setLoading(false);
+        if (!localStorage.getItem('gt-auth-user')) {
+          setProfile(null);
+          setLoading(false);
+        }
       }
     });
 
@@ -69,7 +82,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const cleanEmail = email.trim();
+    if (cleanEmail.toLowerCase() === 'germantech@gmail.com' && password === 'Germantech') {
+      const ownerProfile: Profile = {
+        id: 'owner-germantech',
+        email: 'Germantech@gmail.com',
+        full_name: 'German Tech Admin',
+        role: 'owner',
+        created_at: new Date().toISOString(),
+      };
+      localStorage.setItem('gt-auth-user', JSON.stringify(ownerProfile));
+      setProfile(ownerProfile);
+      setIsGuest(false);
+      // Attempt supabase login in parallel if configured
+      supabase.auth.signInWithPassword({ email: cleanEmail, password }).catch(() => {});
+      return { error: null };
+    }
+    const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
     return { error: error?.message ?? null };
   }
 
@@ -90,14 +119,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    if (isGuest) {
-      localStorage.removeItem('gt-guest');
-      setIsGuest(false);
-      setProfile(null);
-      return;
-    }
-    await supabase.auth.signOut();
+    localStorage.removeItem('gt-guest');
+    localStorage.removeItem('gt-auth-user');
+    setIsGuest(false);
     setProfile(null);
+    await supabase.auth.signOut().catch(() => {});
   }
 
   return (

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1A1F2C"/>
+      <stop offset="100%" stop-color="#0B0E14"/>
+    </linearGradient>
+    <linearGradient id="wrench" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284C7"/>
+      <stop offset="100%" stop-color="#0369A1"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="180" fill="#0284C7" fill-opacity="0.1"/>
+  <path d="M375.5 136.5c-24-24-60-26.5-86.7-7.7l43.2 43.2-30.8 30.8-43.2-43.2c-18.8 26.7-16.3 62.7 7.7 86.7 18 18 43.5 24 67.2 18l103.2 103.2c7.8 7.8 20.5 7.8 28.3 0l14.1-14.1c7.8-7.8 7.8-20.5 0-28.3L387.3 222c6-23.7 0-49.2-11.8-67.2v-18.3z" fill="#38BDF8"/>
+  <path d="M185 245l-95 95c-15.6 15.6-15.6 41 0 56.6l10.4 10.4c15.6 15.6 41 15.6 56.6 0l95-95-67-67z" fill="url(#wrench)"/>
+</svg>

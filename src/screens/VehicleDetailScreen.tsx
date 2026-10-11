@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { Car, Phone, Mail, MapPin, QrCode, Printer, MessageCircle, ArrowLeft, Calendar, Gauge, Palette, Fuel, Hash, Edit2, Check } from 'lucide-react';
+import { Car, Phone, Mail, MapPin, QrCode, Printer, MessageCircle, ArrowLeft, Calendar, Gauge, Palette, Fuel, Hash, Edit2, Check, Trash2 } from 'lucide-react';
 import { supabase, type Vehicle, type Job } from '@/lib/supabase';
 import { formatDate, formatINR, maskPlate } from '@/lib/constants';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
@@ -13,6 +13,7 @@ export default function VehicleDetailScreen() {
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
   const [editingOwner, setEditingOwner] = useState(false);
   const [ownerName, setOwnerName] = useState('');
   const [ownerPhone, setOwnerPhone] = useState('');
@@ -25,6 +26,23 @@ export default function VehicleDetailScreen() {
   const [newKm, setNewKm] = useState('');
   const [newMechanic, setNewMechanic] = useState('');
   const navigate = useNavigate();
+
+  async function deleteVehicle() {
+    if (!vehicle) return;
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${vehicle.make} ${vehicle.model} (${vehicle.number_plate})?\n\nThis will permanently delete this car and its service history.`
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    const { error } = await supabase.from('vehicles').delete().eq('id', vehicle.id);
+    if (error) {
+      alert('Failed to delete vehicle: ' + error.message);
+      setDeleting(false);
+    } else {
+      navigate('/app/vehicles');
+    }
+  }
 
   async function createNewJob(e?: React.MouseEvent | React.FormEvent) {
     if (e) e.preventDefault();
@@ -150,6 +168,14 @@ export default function VehicleDetailScreen() {
           <div className="flex gap-2">
             <button onClick={printSticker} className="btn-secondary text-xs">
               <Printer className="h-4 w-4" /> Print sticker
+            </button>
+            <button
+              onClick={deleteVehicle}
+              disabled={deleting}
+              className="btn-ghost text-xs text-signal-red hover:bg-signal-red/10 border border-signal-red/20"
+              title="Delete this vehicle"
+            >
+              <Trash2 className="h-4 w-4" /> {deleting ? 'Deleting…' : 'Delete'}
             </button>
           </div>
         </div>

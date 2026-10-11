@@ -30,7 +30,7 @@ function ProtectedRoute({ children, title }: { children: ReactNode; title: strin
     );
   }
 
-  if (!session && !isGuest) {
+  if (!session && !profile && !isGuest) {
     return <Navigate to="/" replace />;
   }
 
@@ -42,7 +42,7 @@ function ProtectedRoute({ children, title }: { children: ReactNode; title: strin
 }
 
 function AppRoutes() {
-  const { session, loading, isGuest } = useAuth();
+  const { session, profile, loading, isGuest } = useAuth();
 
   if (loading) {
     return (
@@ -57,9 +57,11 @@ function AppRoutes() {
     );
   }
 
+  const isAuthenticated = Boolean(session || profile || isGuest);
+
   return (
     <Routes>
-      <Route path="/" element={session || isGuest ? <Navigate to="/app" replace /> : <LoginScreen />} />
+      <Route path="/" element={isAuthenticated ? <Navigate to="/app" replace /> : <LoginScreen />} />
       <Route path="/car/:token" element={<PublicCarPage />} />
       <Route path="/invoice/:token" element={<PublicInvoicePage />} />
       <Route path="/app" element={<ProtectedRoute title="Dashboard"><DashboardScreen /></ProtectedRoute>} />
