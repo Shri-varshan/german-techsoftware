@@ -1,0 +1,2 @@
+[functions.public-car-data]
+verify_jwt = false

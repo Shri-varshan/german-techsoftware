@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply font-sans antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-accent-500 px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-accent-600 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-graphite-100 px-5 py-3 text-sm font-semibold text-graphite-800 transition-all hover:bg-graphite-200 active:scale-[0.98] dark:bg-graphite-800 dark:text-graphite-100 dark:hover:bg-graphite-700;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-graphite-600 transition-all hover:bg-graphite-100 active:scale-[0.98] dark:text-graphite-300 dark:hover:bg-graphite-800;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-signal-red/10 px-5 py-3 text-sm font-semibold text-signal-red transition-all hover:bg-signal-red/20 active:scale-[0.98];
+  }
+  .input-field {
+    @apply w-full rounded-xl border border-graphite-200 bg-white px-4 py-3 text-sm text-graphite-900 placeholder-graphite-400 transition-all focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 outline-none dark:border-graphite-700 dark:bg-graphite-900 dark:text-graphite-100 dark:placeholder-graphite-500;
+  }
+  .input-label {
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-graphite-500;
+  }
+  .card {
+    @apply rounded-2xl border border-graphite-200 bg-white p-5 shadow-sm dark:border-graphite-800 dark:bg-graphite-900;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold;
+  }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  body { background: white !important; }
+}
