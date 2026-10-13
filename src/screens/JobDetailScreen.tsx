@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2, Package, Clock, CheckCircle2, AlertTriangle, Lock, Mic, Gauge } from 'lucide-react';
 import { supabase, type Job, type JobPart, type JobLabour, type Vehicle, type Invoice } from '@/lib/supabase';
 import { formatINR, formatDate, maskPlate } from '@/lib/constants';
+import { getCached, setCached, invalidateCache } from '@/lib/cache';
 
 interface JobWithVehicle extends Job {
   vehicle?: Vehicle & { customer?: { name: string; phone: string } };
@@ -11,10 +12,10 @@ interface JobWithVehicle extends Job {
 export default function JobDetailScreen() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [job, setJob] = useState<JobWithVehicle | null>(null);
-  const [parts, setParts] = useState<JobPart[]>([]);
-  const [labour, setLabour] = useState<JobLabour[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [job, setJob] = useState<JobWithVehicle | null>(() => (id ? getCached<JobWithVehicle>(`job_${id}`) : null));
+  const [parts, setParts] = useState<JobPart[]>(() => (id ? getCached<JobPart[]>(`job_parts_${id}`) ?? [] : []));
+  const [labour, setLabour] = useState<JobLabour[]>(() => (id ? getCached<JobLabour[]>(`job_labour_${id}`) ?? [] : []));
+  const [loading, setLoading] = useState(() => !(id && getCached(`job_${id}`)));
   const [showComplete, setShowComplete] = useState(false);
   const [showNewJob, setShowNewJob] = useState(false);
   const [catalogue, setCatalogue] = useState<{ part_name: string; part_number: string; default_price: number; default_gst: number }[]>([]);
@@ -48,17 +49,27 @@ export default function JobDetailScreen() {
   }
 
   async function loadJob(jobId: string) {
-    setLoading(true);
+    if (!getCached(`job_${jobId}`)) {
+      setLoading(true);
+    }
     const [jobRes, partsRes, labourRes, photosRes] = await Promise.all([
       supabase.from('jobs').select('*, vehicle:vehicles(*, customer:customers(*))').eq('id', jobId).maybeSingle(),
       supabase.from('job_parts').select('*').eq('job_id', jobId).order('created_at'),
       supabase.from('job_labour').select('*').eq('job_id', jobId).order('created_at'),
       supabase.from('job_photos').select('*').eq('job_id', jobId).order('created_at'),
     ]);
-    setJob(jobRes.data as JobWithVehicle | null);
-    setParts(partsRes.data as JobPart[] ?? []);
-    setLabour(labourRes.data as JobLabour[] ?? []);
+    const j = jobRes.data as JobWithVehicle | null;
+    const p = (partsRes.data as JobPart[]) ?? [];
+    const l = (labourRes.data as JobLabour[]) ?? [];
+    setJob(j);
+    setParts(p);
+    setLabour(l);
     setPhotos(photosRes.data ?? []);
+    if (j) {
+      setCached(`job_${jobId}`, j);
+      setCached(`job_parts_${jobId}`, p);
+      setCached(`job_labour_${jobId}`, l);
+    }
     setLoading(false);
   }
 
@@ -491,6 +502,12 @@ export default function JobDetailScreen() {
         next_service_km: nextKm ? parseInt(nextKm) : null,
       }).eq('id', job.vehicle_id);
     }
+
+    invalidateCache('jobs');
+    invalidateCache('dashboard');
+    invalidateCache('invoices');
+    invalidateCache('reports');
+    invalidateCache(`job_${job.id}`);
 
     setShowComplete(false);
     navigate(`/app/invoices/${(invoice as Invoice).id}`);

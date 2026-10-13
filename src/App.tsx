@@ -1,6 +1,7 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { type ReactNode } from 'react';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { prefetchCommonData } from '@/lib/cache';
 import AppShell from '@/components/AppShell';
 import LoginScreen from '@/screens/LoginScreen';
 import DashboardScreen from '@/screens/DashboardScreen';
@@ -19,8 +20,13 @@ import PublicCarPage from '@/screens/PublicCarPage';
 import PublicInvoicePage from '@/screens/PublicInvoicePage';
 import { Wrench } from 'lucide-react';
 
-function ProtectedRoute({ children, title }: { children: ReactNode; title: string }) {
+function ProtectedLayout() {
   const { session, loading, profile, isGuest } = useAuth();
+  const location = useLocation();
+
+  useEffect(() => {
+    prefetchCommonData();
+  }, []);
 
   if (loading) {
     return (
@@ -34,11 +40,11 @@ function ProtectedRoute({ children, title }: { children: ReactNode; title: strin
     return <Navigate to="/" replace />;
   }
 
-  if (title === 'Reports' && profile?.role !== 'owner') {
+  if (location.pathname === '/app/reports' && profile?.role !== 'owner') {
     return <Navigate to="/app" replace />;
   }
 
-  return <AppShell title={title}>{children}</AppShell>;
+  return <AppShell />;
 }
 
 function AppRoutes() {
@@ -64,18 +70,22 @@ function AppRoutes() {
       <Route path="/" element={isAuthenticated ? <Navigate to="/app" replace /> : <LoginScreen />} />
       <Route path="/car/:token" element={<PublicCarPage />} />
       <Route path="/invoice/:token" element={<PublicInvoicePage />} />
-      <Route path="/app" element={<ProtectedRoute title="Dashboard"><DashboardScreen /></ProtectedRoute>} />
-      <Route path="/app/register" element={<ProtectedRoute title="Register Vehicle"><RegisterVehicleScreen /></ProtectedRoute>} />
-      <Route path="/app/vehicles" element={<ProtectedRoute title="Vehicles"><VehicleListScreen /></ProtectedRoute>} />
-      <Route path="/app/vehicles/:id" element={<ProtectedRoute title="Vehicle Detail"><VehicleDetailScreen /></ProtectedRoute>} />
-      <Route path="/app/jobs" element={<ProtectedRoute title="Job Cards"><JobListScreen /></ProtectedRoute>} />
-      <Route path="/app/jobs/:id" element={<ProtectedRoute title="Job Card"><JobDetailScreen /></ProtectedRoute>} />
-      <Route path="/app/invoices" element={<ProtectedRoute title="Invoices"><InvoiceListScreen /></ProtectedRoute>} />
-      <Route path="/app/invoices/:id" element={<ProtectedRoute title="Invoice"><InvoiceDetailScreen /></ProtectedRoute>} />
-      <Route path="/app/parts" element={<ProtectedRoute title="Parts Catalogue"><PartsCatalogueScreen /></ProtectedRoute>} />
-      <Route path="/app/customers" element={<ProtectedRoute title="Customers"><CustomersScreen /></ProtectedRoute>} />
-      <Route path="/app/reports" element={<ProtectedRoute title="Reports"><ReportsScreen /></ProtectedRoute>} />
-      <Route path="/app/settings" element={<ProtectedRoute title="Settings"><SettingsScreen /></ProtectedRoute>} />
+
+      <Route element={<ProtectedLayout />}>
+        <Route path="/app" element={<DashboardScreen />} />
+        <Route path="/app/register" element={<RegisterVehicleScreen />} />
+        <Route path="/app/vehicles" element={<VehicleListScreen />} />
+        <Route path="/app/vehicles/:id" element={<VehicleDetailScreen />} />
+        <Route path="/app/jobs" element={<JobListScreen />} />
+        <Route path="/app/jobs/:id" element={<JobDetailScreen />} />
+        <Route path="/app/invoices" element={<InvoiceListScreen />} />
+        <Route path="/app/invoices/:id" element={<InvoiceDetailScreen />} />
+        <Route path="/app/parts" element={<PartsCatalogueScreen />} />
+        <Route path="/app/customers" element={<CustomersScreen />} />
+        <Route path="/app/reports" element={<ReportsScreen />} />
+        <Route path="/app/settings" element={<SettingsScreen />} />
+      </Route>
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

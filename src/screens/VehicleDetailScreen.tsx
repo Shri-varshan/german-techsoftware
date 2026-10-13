@@ -5,20 +5,21 @@ import { supabase, type Vehicle, type Job } from '@/lib/supabase';
 import { formatDate, formatINR, maskPlate } from '@/lib/constants';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import QRCode from 'qrcode';
+import { getCached, setCached, invalidateCache } from '@/lib/cache';
 
 export default function VehicleDetailScreen() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const showQR = searchParams.get('qr') === '1';
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [vehicle, setVehicle] = useState<Vehicle | null>(() => (id ? getCached<Vehicle>(`vehicle_${id}`) : null));
+  const [jobs, setJobs] = useState<Job[]>(() => (id ? getCached<Job[]>(`vehicle_jobs_${id}`) ?? [] : []));
+  const [loading, setLoading] = useState(() => !(id && getCached(`vehicle_${id}`)));
   const [deleting, setDeleting] = useState(false);
   const [editingOwner, setEditingOwner] = useState(false);
-  const [ownerName, setOwnerName] = useState('');
-  const [ownerPhone, setOwnerPhone] = useState('');
-  const [ownerEmail, setOwnerEmail] = useState('');
-  const [ownerAddress, setOwnerAddress] = useState('');
+  const [ownerName, setOwnerName] = useState(() => vehicle?.customer?.name ?? '');
+  const [ownerPhone, setOwnerPhone] = useState(() => vehicle?.customer?.phone ?? '');
+  const [ownerEmail, setOwnerEmail] = useState(() => vehicle?.customer?.email ?? '');
+  const [ownerAddress, setOwnerAddress] = useState(() => vehicle?.customer?.address ?? '');
 
   // New job state
   const [creatingJob, setCreatingJob] = useState(false);
@@ -40,6 +41,9 @@ export default function VehicleDetailScreen() {
       alert('Failed to delete vehicle: ' + error.message);
       setDeleting(false);
     } else {
+      invalidateCache('vehicles');
+      invalidateCache('dashboard');
+      invalidateCache(`vehicle_${vehicle.id}`);
       navigate('/app/vehicles');
     }
   }
@@ -55,6 +59,8 @@ export default function VehicleDetailScreen() {
       status: 'received',
     }).select('id').single();
     if (!error && data) {
+      invalidateCache('jobs');
+      invalidateCache('dashboard');
       navigate(`/app/jobs/${data.id}`);
     }
   }
@@ -65,18 +71,24 @@ export default function VehicleDetailScreen() {
   }, [id]);
 
   async function loadData(vehicleId: string) {
-    setLoading(true);
+    if (!getCached(`vehicle_${vehicleId}`)) {
+      setLoading(true);
+    }
     const [vehRes, jobsRes] = await Promise.all([
       supabase.from('vehicles').select('*, customer:customers(*)').eq('id', vehicleId).maybeSingle(),
       supabase.from('jobs').select('*').eq('vehicle_id', vehicleId).order('job_date', { ascending: false }),
     ]);
-    setVehicle(vehRes.data as Vehicle | null);
-    setJobs(jobsRes.data as Job[] ?? []);
-    if (vehRes.data) {
-      setOwnerName(vehRes.data.customer?.name ?? '');
-      setOwnerPhone(vehRes.data.customer?.phone ?? '');
-      setOwnerEmail(vehRes.data.customer?.email ?? '');
-      setOwnerAddress(vehRes.data.customer?.address ?? '');
+    const v = vehRes.data as Vehicle | null;
+    const j = (jobsRes.data as Job[]) ?? [];
+    setVehicle(v);
+    setJobs(j);
+    if (v) {
+      setCached(`vehicle_${vehicleId}`, v);
+      setCached(`vehicle_jobs_${vehicleId}`, j);
+      setOwnerName(v.customer?.name ?? '');
+      setOwnerPhone(v.customer?.phone ?? '');
+      setOwnerEmail(v.customer?.email ?? '');
+      setOwnerAddress(v.customer?.address ?? '');
     }
     setLoading(false);
   }

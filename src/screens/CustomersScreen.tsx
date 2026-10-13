@@ -2,25 +2,32 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Users, Phone, Mail, Car, ChevronRight } from 'lucide-react';
 import { supabase, type Customer } from '@/lib/supabase';
+import { getCached, setCached } from '@/lib/cache';
 
 interface CustomerWithVehicles extends Customer {
   vehicles?: { id: string; make: string; model: string; number_plate: string }[];
 }
 
 export default function CustomersScreen() {
-  const [customers, setCustomers] = useState<CustomerWithVehicles[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [customers, setCustomers] = useState<CustomerWithVehicles[]>(() => getCached('customers') ?? []);
+  const [loading, setLoading] = useState(() => !getCached('customers'));
   const [search, setSearch] = useState('');
 
   useEffect(() => { loadCustomers(); }, []);
 
   async function loadCustomers() {
-    setLoading(true);
+    if (!getCached('customers')) {
+      setLoading(true);
+    }
     const { data } = await supabase
       .from('customers')
       .select('*, vehicles(id, make, model, number_plate)')
       .order('name');
-    setCustomers(data as CustomerWithVehicles[] ?? []);
+    if (data) {
+      const cList = data as CustomerWithVehicles[];
+      setCustomers(cList);
+      setCached('customers', cList);
+    }
     setLoading(false);
   }
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { IndianRupee, FileText, Package, Wrench, CheckCircle } from 'lucide-react';
 import { supabase, type Invoice } from '@/lib/supabase';
 import { formatINR, formatDate } from '@/lib/constants';
+import { getCached, setCached } from '@/lib/cache';
 
 interface ReportData {
   totalBilled: number;
@@ -13,13 +14,15 @@ interface ReportData {
 }
 
 export default function ReportsScreen() {
-  const [data, setData] = useState<ReportData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<ReportData | null>(() => getCached('reports') ?? null);
+  const [loading, setLoading] = useState(() => !getCached('reports'));
 
   useEffect(() => { loadReports(); }, []);
 
   async function loadReports() {
-    setLoading(true);
+    if (!getCached('reports')) {
+      setLoading(true);
+    }
     const [invoicesRes, partsRes, jobsRes] = await Promise.all([
       supabase.from('invoices').select('*').order('created_at', { ascending: false }),
       supabase.from('job_parts').select('part_name, quantity'),
@@ -49,14 +52,17 @@ export default function ReportsScreen() {
       .sort((a, b) => b.total_qty - a.total_qty)
       .slice(0, 5);
 
-    setData({
+    const reportData: ReportData = {
       totalBilled,
       invoiceCount: invoices.length,
       completedJobsCount: (jobsRes.data ?? []).length,
       topServices,
       topParts,
       recentInvoices: invoices.slice(0, 5),
-    });
+    };
+
+    setData(reportData);
+    setCached('reports', reportData);
     setLoading(false);
   }
 

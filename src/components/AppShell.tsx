@@ -1,5 +1,5 @@
 import { type ReactNode, useState, useEffect } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { LayoutDashboard, Car, Plus, Wrench, FileText, Package, Users, BarChart3, Settings, LogOut, Menu, X, Moon, Sun } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 
@@ -22,13 +22,32 @@ const navItems: NavItem[] = [
   { to: '/app/settings', label: 'Settings', icon: Settings },
 ];
 
-export default function AppShell({ children, title }: { children: ReactNode; title: string }) {
+function getTitleFromPath(path: string): string {
+  if (path === '/app') return 'Dashboard';
+  if (path === '/app/register') return 'Register Car';
+  if (path === '/app/vehicles') return 'Vehicles';
+  if (path.startsWith('/app/vehicles/')) return 'Vehicle Detail';
+  if (path === '/app/jobs') return 'Job Cards';
+  if (path.startsWith('/app/jobs/')) return 'Job Card';
+  if (path === '/app/invoices') return 'Invoices';
+  if (path.startsWith('/app/invoices/')) return 'Invoice';
+  if (path === '/app/parts') return 'Parts Catalogue';
+  if (path === '/app/customers') return 'Customers';
+  if (path === '/app/reports') return 'Reports';
+  if (path === '/app/settings') return 'Settings';
+  return 'German Tech';
+}
+
+export default function AppShell({ children, title }: { children?: ReactNode; title?: string }) {
   const { profile, signOut, isGuest } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dark, setDark] = useState(() => {
     return localStorage.getItem('gt-theme') === 'dark';
   });
+
+  const displayTitle = title || getTitleFromPath(location.pathname);
 
   useEffect(() => {
     if (dark) {
@@ -87,7 +106,7 @@ export default function AppShell({ children, title }: { children: ReactNode; tit
             <button onClick={() => setSidebarOpen(true)} className="btn-ghost p-2 lg:hidden">
               <Menu className="h-5 w-5" />
             </button>
-            <h1 className="text-lg font-bold text-graphite-900 dark:text-white">{title}</h1>
+            <h1 className="text-lg font-bold text-graphite-900 dark:text-white">{displayTitle}</h1>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -110,7 +129,7 @@ export default function AppShell({ children, title }: { children: ReactNode; tit
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-4 lg:p-8">{children}</main>
+        <main className="flex-1 p-4 lg:p-8">{children || <Outlet />}</main>
 
         {/* Mobile bottom nav */}
         <nav className="no-print fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around border-t border-graphite-200 bg-white px-2 py-2 dark:border-graphite-800 dark:bg-graphite-900 lg:hidden">

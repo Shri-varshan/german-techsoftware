@@ -2,10 +2,11 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Search, Plus, Trash2, Package, Edit2, Check, X } from 'lucide-react';
 import { supabase, type PartCatalogueItem } from '@/lib/supabase';
 import { CAR_MAKES, formatINR } from '@/lib/constants';
+import { getCached, setCached } from '@/lib/cache';
 
 export default function PartsCatalogueScreen() {
-  const [parts, setParts] = useState<PartCatalogueItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [parts, setParts] = useState<PartCatalogueItem[]>(() => getCached('parts') ?? []);
+  const [loading, setLoading] = useState(() => !getCached('parts'));
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -18,9 +19,15 @@ export default function PartsCatalogueScreen() {
   useEffect(() => { loadParts(); }, []);
 
   async function loadParts() {
-    setLoading(true);
+    if (!getCached('parts')) {
+      setLoading(true);
+    }
     const { data } = await supabase.from('parts_catalogue').select('*').order('part_name');
-    setParts(data as PartCatalogueItem[] ?? []);
+    if (data) {
+      const pList = data as PartCatalogueItem[];
+      setParts(pList);
+      setCached('parts', pList);
+    }
     setLoading(false);
   }
 

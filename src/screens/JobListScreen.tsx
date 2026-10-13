@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Search, Plus, Wrench, ChevronRight } from 'lucide-react';
 import { supabase, type Job } from '@/lib/supabase';
 import { formatDate, maskPlate } from '@/lib/constants';
+import { getCached, setCached } from '@/lib/cache';
 
 interface JobWithVehicle extends Job {
   vehicle?: {
@@ -15,8 +16,8 @@ interface JobWithVehicle extends Job {
 }
 
 export default function JobListScreen() {
-  const [jobs, setJobs] = useState<JobWithVehicle[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [jobs, setJobs] = useState<JobWithVehicle[]>(() => getCached('jobs') ?? []);
+  const [loading, setLoading] = useState(() => !getCached('jobs'));
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -25,12 +26,18 @@ export default function JobListScreen() {
   }, []);
 
   async function loadJobs() {
-    setLoading(true);
+    if (!getCached('jobs')) {
+      setLoading(true);
+    }
     const { data } = await supabase
       .from('jobs')
       .select('*, vehicle:vehicles(*, customer:customers(*))')
       .order('created_at', { ascending: false });
-    setJobs(data as JobWithVehicle[] ?? []);
+    if (data) {
+      const jList = data as JobWithVehicle[];
+      setJobs(jList);
+      setCached('jobs', jList);
+    }
     setLoading(false);
   }
 

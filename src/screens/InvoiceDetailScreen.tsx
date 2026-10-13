@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, FileText, Printer, MessageCircle, Download, CheckCircle2, Lock } from 'lucide-react';
 import { supabase, type Invoice, type Job, type Vehicle, type JobPart, type JobLabour, type WorkshopSettings } from '@/lib/supabase';
 import { formatINR, formatDate, maskPlate } from '@/lib/constants';
+import { getCached, setCached } from '@/lib/cache';
 import html2canvas from 'html2canvas';
 
 interface FullInvoice extends Invoice {
@@ -11,11 +12,11 @@ interface FullInvoice extends Invoice {
 
 export default function InvoiceDetailScreen() {
   const { id } = useParams<{ id: string }>();
-  const [invoice, setInvoice] = useState<FullInvoice | null>(null);
-  const [parts, setParts] = useState<JobPart[]>([]);
-  const [labour, setLabour] = useState<JobLabour[]>([]);
-  const [settings, setSettings] = useState<WorkshopSettings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [invoice, setInvoice] = useState<FullInvoice | null>(() => (id ? getCached<FullInvoice>(`invoice_${id}`) : null));
+  const [parts, setParts] = useState<JobPart[]>(() => (id ? getCached<JobPart[]>(`invoice_parts_${id}`) ?? [] : []));
+  const [labour, setLabour] = useState<JobLabour[]>(() => (id ? getCached<JobLabour[]>(`invoice_labour_${id}`) ?? [] : []));
+  const [settings, setSettings] = useState<WorkshopSettings | null>(() => getCached('settings') ?? null);
+  const [loading, setLoading] = useState(() => !(id && getCached(`invoice_${id}`)));
 
   useEffect(() => {
     if (!id) return;
@@ -24,25 +25,38 @@ export default function InvoiceDetailScreen() {
   }, [id]);
 
   async function loadSettings() {
+    const cached = getCached<WorkshopSettings>('settings');
+    if (cached) setSettings(cached);
     const { data } = await supabase.from('workshop_settings').select('*').maybeSingle();
-    setSettings(data as WorkshopSettings | null);
+    if (data) {
+      setSettings(data as WorkshopSettings);
+      setCached('settings', data);
+    }
   }
 
   async function loadInvoice(invoiceId: string) {
-    setLoading(true);
+    if (!getCached(`invoice_${invoiceId}`)) {
+      setLoading(true);
+    }
     const { data: inv } = await supabase
       .from('invoices')
       .select('*, job:jobs(*, vehicle:vehicles(*, customer:customers(*)))')
       .eq('id', invoiceId)
       .maybeSingle();
     if (inv) {
-      setInvoice(inv as FullInvoice);
+      const full = inv as FullInvoice;
+      setInvoice(full);
       const [partsRes, labourRes] = await Promise.all([
-        supabase.from('job_parts').select('*').eq('job_id', (inv as FullInvoice).job_id),
-        supabase.from('job_labour').select('*').eq('job_id', (inv as FullInvoice).job_id),
+        supabase.from('job_parts').select('*').eq('job_id', full.job_id),
+        supabase.from('job_labour').select('*').eq('job_id', full.job_id),
       ]);
-      setParts(partsRes.data as JobPart[] ?? []);
-      setLabour(labourRes.data as JobLabour[] ?? []);
+      const p = (partsRes.data as JobPart[]) ?? [];
+      const l = (labourRes.data as JobLabour[]) ?? [];
+      setParts(p);
+      setLabour(l);
+      setCached(`invoice_${invoiceId}`, full);
+      setCached(`invoice_parts_${invoiceId}`, p);
+      setCached(`invoice_labour_${invoiceId}`, l);
     }
     setLoading(false);
   }

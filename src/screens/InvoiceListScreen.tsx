@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Search, FileText, ChevronRight, IndianRupee, Hash } from 'lucide-react';
 import { supabase, type Invoice } from '@/lib/supabase';
 import { formatINR, formatDate } from '@/lib/constants';
+import { getCached, setCached } from '@/lib/cache';
 
 interface InvoiceWithJob extends Invoice {
   job?: {
@@ -16,8 +17,8 @@ interface InvoiceWithJob extends Invoice {
 }
 
 export default function InvoiceListScreen() {
-  const [invoices, setInvoices] = useState<InvoiceWithJob[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [invoices, setInvoices] = useState<InvoiceWithJob[]>(() => getCached('invoices') ?? []);
+  const [loading, setLoading] = useState(() => !getCached('invoices'));
   const [search, setSearch] = useState('');
 
   useEffect(() => {
@@ -25,12 +26,18 @@ export default function InvoiceListScreen() {
   }, []);
 
   async function loadInvoices() {
-    setLoading(true);
+    if (!getCached('invoices')) {
+      setLoading(true);
+    }
     const { data } = await supabase
       .from('invoices')
       .select('*, job:jobs(*, vehicle:vehicles(*, customer:customers(*)))')
       .order('created_at', { ascending: false });
-    setInvoices(data as InvoiceWithJob[] ?? []);
+    if (data) {
+      const invList = data as InvoiceWithJob[];
+      setInvoices(invList);
+      setCached('invoices', invList);
+    }
     setLoading(false);
   }
 

@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import { Search, Car, Plus, ChevronRight, Trash2, X } from 'lucide-react';
 import { supabase, type Vehicle } from '@/lib/supabase';
 import { maskPlate } from '@/lib/constants';
+import { getCached, setCached } from '@/lib/cache';
 
 export default function VehicleListScreen() {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [vehicles, setVehicles] = useState<Vehicle[]>(() => getCached('vehicles') ?? []);
+  const [loading, setLoading] = useState(() => !getCached('vehicles'));
   const [search, setSearch] = useState('');
 
   useEffect(() => {
@@ -14,12 +15,18 @@ export default function VehicleListScreen() {
   }, []);
 
   async function loadVehicles() {
-    setLoading(true);
+    if (!getCached('vehicles')) {
+      setLoading(true);
+    }
     const { data } = await supabase
       .from('vehicles')
       .select('*, customer:customers(*)')
       .order('created_at', { ascending: false });
-    setVehicles(data as Vehicle[] ?? []);
+    if (data) {
+      const vList = data as Vehicle[];
+      setVehicles(vList);
+      setCached('vehicles', vList);
+    }
     setLoading(false);
   }
 
@@ -35,7 +42,11 @@ export default function VehicleListScreen() {
     if (error) {
       alert('Failed to delete vehicle: ' + error.message);
     } else {
-      setVehicles((prev) => prev.filter((item) => item.id !== v.id));
+      setVehicles((prev) => {
+        const next = prev.filter((item) => item.id !== v.id);
+        setCached('vehicles', next);
+        return next;
+      });
     }
   }
 

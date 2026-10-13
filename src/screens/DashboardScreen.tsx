@@ -3,18 +3,19 @@ import { Link } from 'react-router-dom';
 import { Car, Wrench, FileText, Clock, Plus, Search, TrendingUp, IndianRupee } from 'lucide-react';
 import { supabase, type Vehicle, type Job, type Invoice } from '@/lib/supabase';
 import { formatINR, formatDate, maskPlate } from '@/lib/constants';
+import { getCached, setCached } from '@/lib/cache';
 
 interface JobWithVehicle extends Job {
   vehicle?: { make: string; model: string; number_plate: string; customer?: { name: string } };
 }
 
 export default function DashboardScreen() {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [activeJobs, setActiveJobs] = useState<JobWithVehicle[]>([]);
-  const [totalVehiclesCount, setTotalVehiclesCount] = useState(0);
-  const [totalInvoicesCount, setTotalInvoicesCount] = useState(0);
-  const [todayCount, setTodayCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [vehicles, setVehicles] = useState<Vehicle[]>(() => getCached('dashboard_vehicles') ?? []);
+  const [activeJobs, setActiveJobs] = useState<JobWithVehicle[]>(() => getCached('dashboard_jobs') ?? []);
+  const [totalVehiclesCount, setTotalVehiclesCount] = useState<number>(() => getCached('dashboard_totalVehicles') ?? 0);
+  const [totalInvoicesCount, setTotalInvoicesCount] = useState<number>(() => getCached('dashboard_totalInvoices') ?? 0);
+  const [todayCount, setTodayCount] = useState<number>(() => getCached('dashboard_todayCount') ?? 0);
+  const [loading, setLoading] = useState(() => !getCached('dashboard_vehicles'));
   const [search, setSearch] = useState('');
 
   useEffect(() => {
@@ -22,7 +23,9 @@ export default function DashboardScreen() {
   }, []);
 
   async function loadDashboard() {
-    setLoading(true);
+    if (!getCached('dashboard_vehicles')) {
+      setLoading(true);
+    }
     const [vehiclesRes, jobsRes, totalVehiclesRes, totalInvoicesRes, todayRes] = await Promise.all([
       supabase.from('vehicles').select('*, customer:customers(*)').order('created_at', { ascending: false }).limit(5),
       supabase.from('jobs').select('*, vehicle:vehicles(*, customer:customers(*))').in('status', ['received', 'in_progress', 'ready']).order('created_at', { ascending: false }),
@@ -31,11 +34,24 @@ export default function DashboardScreen() {
       supabase.from('jobs').select('id').gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
     ]);
 
-    setVehicles(vehiclesRes.data as Vehicle[] ?? []);
-    setActiveJobs(jobsRes.data as JobWithVehicle[] ?? []);
-    setTotalVehiclesCount(totalVehiclesRes.count ?? 0);
-    setTotalInvoicesCount(totalInvoicesRes.count ?? 0);
-    setTodayCount(todayRes.data?.length ?? 0);
+    const vData = (vehiclesRes.data as Vehicle[]) ?? [];
+    const jData = (jobsRes.data as JobWithVehicle[]) ?? [];
+    const vCount = totalVehiclesRes.count ?? 0;
+    const iCount = totalInvoicesRes.count ?? 0;
+    const tCount = todayRes.data?.length ?? 0;
+
+    setVehicles(vData);
+    setActiveJobs(jData);
+    setTotalVehiclesCount(vCount);
+    setTotalInvoicesCount(iCount);
+    setTodayCount(tCount);
+
+    setCached('dashboard_vehicles', vData);
+    setCached('dashboard_jobs', jData);
+    setCached('dashboard_totalVehicles', vCount);
+    setCached('dashboard_totalInvoices', iCount);
+    setCached('dashboard_todayCount', tCount);
+
     setLoading(false);
   }
 

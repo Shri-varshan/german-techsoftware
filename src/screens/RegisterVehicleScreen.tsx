@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { User, Car, ChevronRight, AlertCircle } from 'lucide-react';
 import { supabase, type Vehicle } from '@/lib/supabase';
 import { CAR_MAKES, CAR_MODELS, FUEL_TYPES, COLOURS, formatPlate, generatePublicToken } from '@/lib/constants';
+import { invalidateCache } from '@/lib/cache';
 
 export default function RegisterVehicleScreen() {
   const navigate = useNavigate();
@@ -104,6 +105,10 @@ export default function RegisterVehicleScreen() {
       setLoading(false);
       return;
     }
+
+    invalidateCache('vehicles');
+    invalidateCache('dashboard');
+    invalidateCache('customers');
 
     setLoading(false);
     navigate(`/app/vehicles/${vehicle.id}?qr=1`);
