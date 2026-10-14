@@ -180,11 +180,12 @@ export default function DashboardScreen() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, color }: { icon: typeof Car; label: string; value: string; color: 'accent' | 'amber' | 'red' }) {
+function StatCard({ icon: Icon, label, value, color }: { icon: typeof Car; label: string; value: string; color: 'accent' | 'amber' | 'red' | 'green' }) {
   const colors = {
     accent: 'bg-accent-500/10 text-accent-600 dark:text-accent-400',
     amber: 'bg-signal-amber/10 text-signal-amber',
     red: 'bg-signal-red/10 text-signal-red',
+    green: 'bg-signal-green/10 text-signal-green',
   };
   return (
     <div className="card flex items-center gap-3">

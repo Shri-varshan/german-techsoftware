@@ -124,6 +124,7 @@ export interface PublicCarHistory {
     number_plate: string;
     colour: string;
     fuel_type: string;
+    customer_name?: string;
   };
   jobs?: Array<{
     job_date: string;

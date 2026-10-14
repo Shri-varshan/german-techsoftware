@@ -1,9 +1,20 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Package, Clock, CheckCircle2, AlertTriangle, Lock, Mic, Gauge } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Package, Clock, CheckCircle2, AlertTriangle, Lock, Mic, Gauge, Sparkles, X, FileText, Check } from 'lucide-react';
 import { supabase, type Job, type JobPart, type JobLabour, type Vehicle, type Invoice } from '@/lib/supabase';
 import { formatINR, formatDate, maskPlate } from '@/lib/constants';
 import { getCached, setCached, invalidateCache } from '@/lib/cache';
+
+interface ScannedPartItem {
+  part_name: string;
+  quantity: number;
+  unit_price: number;
+}
+
+interface ScannedLabourItem {
+  description: string;
+  amount: number;
+}
 
 interface JobWithVehicle extends Job {
   vehicle?: Vehicle & { customer?: { name: string; phone: string } };
@@ -126,16 +137,28 @@ export default function JobDetailScreen() {
   }
 
   const [aiScanning, setAiScanning] = useState(false);
+  const [scanStepMessage, setScanStepMessage] = useState('');
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [scannedParts, setScannedParts] = useState<ScannedPartItem[]>([]);
+  const [scannedLabour, setScannedLabour] = useState<ScannedLabourItem[]>([]);
+  const [scannedImagePreview, setScannedImagePreview] = useState<string>('');
+  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [savingScanned, setSavingScanned] = useState(false);
 
   async function handleAiScan(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files || !e.target.files[0] || !job) return;
     const file = e.target.files[0];
-    const groqKey = import.meta.env.VITE_GROQ_API_KEY || localStorage.getItem('gt-groq-key');
+    let groqKey = import.meta.env.VITE_GROQ_API_KEY || localStorage.getItem('groq_api_key') || localStorage.getItem('gt-groq-key');
     if (!groqKey) {
-      alert('Missing Groq API Key. Please ensure VITE_GROQ_API_KEY is configured in Vercel settings.');
-      return;
+      const entered = prompt('Please enter your Groq API Key to enable AI Vision bill scanning:');
+      if (!entered) return;
+      localStorage.setItem('groq_api_key', entered.trim());
+      groqKey = entered.trim();
     }
+
     setAiScanning(true);
+    setScanStepMessage('Processing bill photo...');
+
     try {
       const reader = new FileReader();
       reader.onload = async (ev) => {
@@ -145,7 +168,7 @@ export default function JobDetailScreen() {
             const canvas = document.createElement('canvas');
             let width = img.width;
             let height = img.height;
-            const max = 1600;
+            const max = 1800;
             
             if (width > height && width > max) {
               height = Math.round((height * max) / width);
@@ -158,19 +181,37 @@ export default function JobDetailScreen() {
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
-            ctx?.drawImage(img, 0, 0, width, height);
+            if (!ctx) throw new Error('Failed to create canvas context');
+            ctx.drawImage(img, 0, 0, width, height);
             
-            // Step 1: Run local OCR on the photo
-            const Tesseract = (await import('tesseract.js')).default;
-            const { data: { text } } = await Tesseract.recognize(canvas, 'eng');
-            
-            if (!text || text.trim().length < 3) {
-              alert('Could not read text clearly from this image. Please take a clearer, well-lit photo of the bill.');
-              setAiScanning(false);
-              return;
-            }
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            setScanStepMessage('AI reading handwritten items & prices...');
 
-            // Step 2: Use high-speed Groq engine to extract parts and labour
+            const systemPrompt = `You are an expert automotive workshop AI assistant specializing in accurately reading handwritten garage bills, repair orders, parts estimates, job cards, and mechanic invoices.
+
+Carefully examine all handwritten text, columns, abbreviations, quantities, and prices in the image.
+
+Output ONLY a valid JSON object matching this schema:
+{
+  "parts": [
+    { "part_name": "Full name of the spare part or material", "quantity": 1, "unit_price": 450 }
+  ],
+  "labour": [
+    { "description": "Description of the labour/service work", "amount": 500 }
+  ]
+}
+
+Important guidelines for handwritten automotive bills:
+1. Distinguish between physical spare parts (engine oil, brake oil, coolant, oil filter, air filter, brake pads, wiper blades, spark plugs, belts, bearings, bulbs, bushes, fluids) and labour charges (service charge, labour, fitting, lathe work, disc facing, tinkering, painting, electrical repair, wash/cleaning, diagnosis).
+2. Many handwritten bills use abbreviations or mechanic shorthand. Expand them cleanly (e.g. 'eng oil' -> 'Engine Oil', 'brk pad' -> 'Brake Pads', 'o/f' or 'oil fltr' -> 'Oil Filter', 'shox' -> 'Shock Absorber', 'alnmt' -> 'Wheel Alignment', 'disc turn' -> 'Brake Disc Skimming').
+3. For handwritten quantities, if not mentioned, default to 1.
+4. All unit_price and amount values MUST be numbers only (strip any currency symbols like ₹, Rs, commas, or words).
+5. If nothing is found or the image is unrelated, return { "parts": [], "labour": [] }.
+6. Output raw JSON only starting with { and ending with }.`;
+
+            const userPrompt = "Read all handwritten spare parts and labour entries from this bill image. Return JSON only.";
+
+            // Multimodal Vision call using Groq
             const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
               method: 'POST',
               headers: {
@@ -178,69 +219,63 @@ export default function JobDetailScreen() {
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                model: 'openai/gpt-oss-120b',
+                model: 'qwen/qwen3.8-27b',
                 messages: [
                   {
                     role: 'system',
-                    content: 'You extract spare parts and labour charges from bill OCR text. Return ONLY a valid JSON object with exactly two keys: "parts" (array of objects with "part_name" (string), "quantity" (number), "unit_price" (number)) and "labour" (array of objects with "description" (string), "amount" (number)). Output nothing but the raw JSON object starting with { and ending with }.'
+                    content: systemPrompt
                   },
                   {
                     role: 'user',
-                    content: text
+                    content: [
+                      { type: 'text', text: userPrompt },
+                      { type: 'image_url', image_url: { url: dataUrl } }
+                    ]
                   }
                 ],
                 response_format: { type: 'json_object' }
               })
             });
 
-            const groqRes = await res.json();
-            if (groqRes.error) {
-              throw new Error(groqRes.error.message || 'Groq AI error');
+            if (!res.ok) {
+              const errBody = await res.json().catch(() => ({}));
+              throw new Error(errBody?.error?.message || `AI error (${res.status})`);
             }
 
+            const groqRes = await res.json();
             const responseText = groqRes.choices?.[0]?.message?.content || '{}';
             const jsonMatch = responseText.match(/\{[\s\S]*\}/);
             if (!jsonMatch) throw new Error('No valid JSON extracted from bill');
             const parsed = JSON.parse(jsonMatch[0]);
             
-            // Insert parts into database
-            if (parsed.parts && Array.isArray(parsed.parts)) {
-              for (const p of parsed.parts) {
-                const { data } = await supabase.from('job_parts').insert({
-                  job_id: job.id,
-                  part_name: p.part_name || 'Unknown Part',
-                  part_number: '',
-                  quantity: Number(p.quantity) || 1,
-                  unit_price: Number(p.unit_price) || 0,
-                  gst_percent: 0,
-                }).select('*').single();
-                
-                if (data) {
-                   setParts(prev => [...prev, data as JobPart]);
-                }
-              }
+            const rawParts = Array.isArray(parsed.parts) ? parsed.parts : [];
+            const rawLabour = Array.isArray(parsed.labour) ? parsed.labour : [];
+
+            const extractedParts: ScannedPartItem[] = rawParts.map((p: any) => ({
+              part_name: String(p.part_name || '').trim(),
+              quantity: Math.max(1, Number(p.quantity) || 1),
+              unit_price: Math.max(0, Number(p.unit_price) || 0),
+            })).filter((p: any) => p.part_name && p.unit_price > 0);
+
+            const extractedLabour: ScannedLabourItem[] = rawLabour.map((l: any) => ({
+              description: String(l.description || '').trim(),
+              amount: Math.max(0, Number(l.amount) || 0),
+            })).filter((l: any) => l.description && l.amount > 0);
+
+            if (extractedParts.length === 0 && extractedLabour.length === 0) {
+              alert('No parts or labour items could be recognized in this image. Please ensure the bill is well-lit, clearly legible, and shows part names and prices.');
+              setAiScanning(false);
+              return;
             }
 
-            // Insert labour into database
-            if (parsed.labour && Array.isArray(parsed.labour)) {
-              for (const l of parsed.labour) {
-                const { data } = await supabase.from('job_labour').insert({
-                  job_id: job.id,
-                  description: l.description || 'General Labour',
-                  hours: 0,
-                  rate: 0,
-                  fixed_amount: Number(l.amount) || 0,
-                }).select('*').single();
-                
-                if (data) {
-                   setLabour(prev => [...prev, data as JobLabour]);
-                }
-              }
-            }
+            setScannedParts(extractedParts);
+            setScannedLabour(extractedLabour);
+            setScannedImagePreview(dataUrl);
+            setShowScanModal(true);
             setAiScanning(false);
           } catch (err: any) {
-            console.error(err);
-            alert('Failed to parse AI response: ' + (err.message || 'Unknown error'));
+            console.error('AI Scan error:', err);
+            alert('Failed to parse bill with AI: ' + (err.message || 'Unknown error'));
             setAiScanning(false);
           }
         };
@@ -253,6 +288,61 @@ export default function JobDetailScreen() {
       setAiScanning(false);
     }
     e.target.value = '';
+  }
+
+  async function confirmScannedItems() {
+    if (!job) return;
+    setSavingScanned(true);
+    try {
+      const addedParts: JobPart[] = [];
+      for (const p of scannedParts) {
+        if (!p.part_name.trim() || p.unit_price <= 0) continue;
+        const cat = catalogue.find(c => c.part_name.toLowerCase() === p.part_name.trim().toLowerCase());
+        const { data } = await supabase.from('job_parts').insert({
+          job_id: job.id,
+          part_name: p.part_name.trim(),
+          part_number: cat?.part_number || '',
+          quantity: p.quantity || 1,
+          unit_price: p.unit_price || 0,
+          gst_percent: cat?.default_gst || 0,
+        }).select('*').single();
+        if (data) addedParts.push(data as JobPart);
+      }
+
+      const addedLabour: JobLabour[] = [];
+      for (const l of scannedLabour) {
+        if (!l.description.trim() || l.amount <= 0) continue;
+        const { data } = await supabase.from('job_labour').insert({
+          job_id: job.id,
+          description: l.description.trim(),
+          hours: 0,
+          rate: 0,
+          fixed_amount: l.amount || 0,
+        }).select('*').single();
+        if (data) addedLabour.push(data as JobLabour);
+      }
+
+      if (addedParts.length > 0) {
+        const nextParts = [...parts, ...addedParts];
+        setParts(nextParts);
+        setCached(`job_parts_${job.id}`, nextParts);
+      }
+      if (addedLabour.length > 0) {
+        const nextLabour = [...labour, ...addedLabour];
+        setLabour(nextLabour);
+        setCached(`job_labour_${job.id}`, nextLabour);
+      }
+
+      setShowScanModal(false);
+      setScannedParts([]);
+      setScannedLabour([]);
+      setScannedImagePreview('');
+    } catch (err: any) {
+      console.error('Save error:', err);
+      alert('Error saving scanned items: ' + (err.message || 'Unknown error'));
+    } finally {
+      setSavingScanned(false);
+    }
   }
 
   const [listening, setListening] = useState(false);
@@ -609,8 +699,9 @@ export default function JobDetailScreen() {
               >
                 <Mic className="h-4 w-4" /> {listening ? 'Listening...' : 'Voice Input'}
               </button>
-              <label className="btn-secondary text-xs cursor-pointer">
-                {aiScanning ? 'Scanning...' : '✨ AI Scan Bill'}
+              <label className={`btn-secondary text-xs cursor-pointer flex items-center gap-1.5 ${aiScanning ? 'opacity-80 pointer-events-none' : ''}`}>
+                <Sparkles className={`h-3.5 w-3.5 text-accent-500 ${aiScanning ? 'animate-spin' : ''}`} />
+                {aiScanning ? (scanStepMessage || 'Reading Bill...') : 'AI Scan Bill'}
                 <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleAiScan} disabled={aiScanning || listening} />
               </label>
               <button onClick={() => setShowPartForm(true)} className="btn-ghost text-xs">
@@ -780,6 +871,224 @@ export default function JobDetailScreen() {
                 <button onClick={() => setShowComplete(false)} className="btn-ghost flex-1">Cancel</button>
                 <button onClick={completeJob} className="btn-primary flex-1">
                   <CheckCircle2 className="h-4 w-4" /> Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating AI Scanning indicator */}
+      {aiScanning && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-full bg-graphite-900/95 text-white px-5 py-3 shadow-2xl backdrop-blur-md border border-graphite-700 animate-slide-up">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-accent-400" />
+          <span className="text-xs font-semibold">{scanStepMessage || 'Reading handwritten bill with AI Vision...'}</span>
+        </div>
+      )}
+
+      {/* Scanned items review modal */}
+      {showScanModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in" onClick={() => !savingScanned && setShowScanModal(false)}>
+          <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl dark:bg-graphite-900 border border-graphite-200 dark:border-graphite-800 max-h-[90vh] flex flex-col animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-graphite-100 dark:border-graphite-800">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-500/10 text-accent-500">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-graphite-900 dark:text-white">Review Scanned Bill</h3>
+                  <p className="text-2xs text-graphite-500">Handwritten bill parsed by AI Vision. Verify or adjust details.</p>
+                </div>
+              </div>
+              <button onClick={() => setShowScanModal(false)} disabled={savingScanned} className="text-graphite-400 hover:text-graphite-600 dark:hover:text-graphite-200">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Scrollable list */}
+            <div className="flex-1 overflow-y-auto py-3 space-y-4 pr-1">
+              {/* Image preview toggle */}
+              {scannedImagePreview && (
+                <div className="rounded-xl border border-graphite-100 dark:border-graphite-800 overflow-hidden bg-graphite-50 dark:bg-graphite-800/40 p-2.5">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowImagePreview(!showImagePreview)}
+                    className="flex items-center justify-between w-full text-xs font-semibold text-graphite-600 dark:text-graphite-300"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5 text-graphite-400" /> Scanned Bill Photo
+                    </span>
+                    <span className="text-2xs font-bold text-accent-500 hover:underline">{showImagePreview ? 'Hide Photo ▲' : 'Show Photo ▼'}</span>
+                  </button>
+                  {showImagePreview && (
+                    <div className="mt-2 max-h-56 overflow-auto rounded-lg border border-graphite-200 dark:border-graphite-700 bg-black/90 flex justify-center p-1">
+                      <img src={scannedImagePreview} alt="Scanned Bill" className="max-h-52 object-contain rounded" />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Spare parts */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-graphite-500 flex items-center gap-1.5">
+                    <Package className="h-3.5 w-3.5" /> Spare Parts ({scannedParts.length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setScannedParts([...scannedParts, { part_name: '', quantity: 1, unit_price: 0 }])}
+                    className="text-xs font-semibold text-accent-500 hover:text-accent-600 flex items-center gap-1"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Part
+                  </button>
+                </div>
+
+                {scannedParts.length === 0 ? (
+                  <p className="text-xs text-graphite-400 py-2.5 text-center bg-graphite-50 dark:bg-graphite-800/40 rounded-xl">No spare parts detected</p>
+                ) : (
+                  <div className="space-y-2">
+                    {scannedParts.map((p, idx) => (
+                      <div key={idx} className="flex items-center gap-2 rounded-xl bg-graphite-50 p-2 dark:bg-graphite-800/60 border border-graphite-100 dark:border-graphite-700">
+                        <input
+                          type="text"
+                          value={p.part_name}
+                          onChange={(e) => {
+                            const next = [...scannedParts];
+                            next[idx].part_name = e.target.value;
+                            setScannedParts(next);
+                          }}
+                          placeholder="Part name"
+                          className="input-field text-xs flex-1 py-1 px-2.5"
+                        />
+                        <div className="w-16">
+                          <input
+                            type="number"
+                            min="1"
+                            value={p.quantity}
+                            onChange={(e) => {
+                              const next = [...scannedParts];
+                              next[idx].quantity = Math.max(1, Number(e.target.value) || 1);
+                              setScannedParts(next);
+                            }}
+                            placeholder="Qty"
+                            className="input-field text-xs text-center py-1 px-1"
+                          />
+                        </div>
+                        <div className="w-24">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={p.unit_price}
+                            onChange={(e) => {
+                              const next = [...scannedParts];
+                              next[idx].unit_price = Math.max(0, Number(e.target.value) || 0);
+                              setScannedParts(next);
+                            }}
+                            placeholder="₹ Rate"
+                            className="input-field text-xs py-1 px-2"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setScannedParts(scannedParts.filter((_, i) => i !== idx))}
+                          className="text-graphite-400 hover:text-signal-red p-1"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Labour section */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-graphite-500 flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5" /> Labour / Services ({scannedLabour.length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setScannedLabour([...scannedLabour, { description: '', amount: 0 }])}
+                    className="text-xs font-semibold text-accent-500 hover:text-accent-600 flex items-center gap-1"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Labour
+                  </button>
+                </div>
+
+                {scannedLabour.length === 0 ? (
+                  <p className="text-xs text-graphite-400 py-2.5 text-center bg-graphite-50 dark:bg-graphite-800/40 rounded-xl">No labour charges detected</p>
+                ) : (
+                  <div className="space-y-2">
+                    {scannedLabour.map((l, idx) => (
+                      <div key={idx} className="flex items-center gap-2 rounded-xl bg-graphite-50 p-2 dark:bg-graphite-800/60 border border-graphite-100 dark:border-graphite-700">
+                        <input
+                          type="text"
+                          value={l.description}
+                          onChange={(e) => {
+                            const next = [...scannedLabour];
+                            next[idx].description = e.target.value;
+                            setScannedLabour(next);
+                          }}
+                          placeholder="Labour description"
+                          className="input-field text-xs flex-1 py-1 px-2.5"
+                        />
+                        <div className="w-28">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={l.amount}
+                            onChange={(e) => {
+                              const next = [...scannedLabour];
+                              next[idx].amount = Math.max(0, Number(e.target.value) || 0);
+                              setScannedLabour(next);
+                            }}
+                            placeholder="₹ Amount"
+                            className="input-field text-xs py-1 px-2"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setScannedLabour(scannedLabour.filter((_, i) => i !== idx))}
+                          className="text-graphite-400 hover:text-signal-red p-1"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="pt-3 border-t border-graphite-100 dark:border-graphite-800 space-y-3">
+              <div className="flex justify-between items-center text-sm px-1">
+                <span className="text-graphite-500 font-medium">Scanned Total</span>
+                <span className="font-bold text-graphite-900 dark:text-white tabular-nums">
+                  {formatINR(
+                    scannedParts.reduce((sum, p) => sum + (p.quantity * p.unit_price), 0) +
+                    scannedLabour.reduce((sum, l) => sum + l.amount, 0)
+                  )}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowScanModal(false)}
+                  disabled={savingScanned}
+                  className="btn-ghost flex-1 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmScannedItems}
+                  disabled={savingScanned || (scannedParts.length === 0 && scannedLabour.length === 0)}
+                  className="btn-primary flex-1 text-xs shadow-md shadow-accent-500/20"
+                >
+                  <Check className="h-4 w-4" /> {savingScanned ? 'Adding...' : 'Add All to Job Card'}
                 </button>
               </div>
             </div>
