@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Car, Wrench, Calendar, Gauge, Cog, MessageCircle, Phone, MapPin, CheckCircle2, Clock, ChevronRight } from 'lucide-react';
+import { Car, Wrench, Calendar, Gauge, Cog, MessageCircle, Phone, MapPin, CheckCircle2, Clock, ChevronRight, AlertCircle } from 'lucide-react';
 import { supabase, type PublicCarHistory } from '@/lib/supabase';
 import { formatDate, maskPlate } from '@/lib/constants';
 
@@ -163,15 +163,22 @@ export default function PublicCarPage() {
                       </span>
                     </div>
 
-                    <p className="mt-2 text-sm text-graphite-700 dark:text-graphite-300">
-                      {job.complaint}
-                    </p>
+                    {job.complaint && job.complaint.trim() && (
+                      <div className="mt-3 rounded-xl bg-graphite-50 p-3 dark:bg-graphite-800/60 border border-graphite-100 dark:border-graphite-700/60">
+                        <p className="mb-1 flex items-center gap-1.5 text-2xs font-bold uppercase tracking-wider text-graphite-500 dark:text-graphite-400">
+                          <AlertCircle className="h-3.5 w-3.5 text-signal-amber" /> Customer Complaint / Reported Issues
+                        </p>
+                        <p className="text-sm font-medium text-graphite-900 dark:text-white whitespace-pre-line">
+                          {job.complaint}
+                        </p>
+                      </div>
+                    )}
 
                     {/* Parts replaced */}
                     {job.parts && job.parts.length > 0 && (
                       <div className="mt-3">
                         <p className="mb-1.5 flex items-center gap-1 text-2xs font-semibold uppercase tracking-wide text-graphite-400">
-                          <Cog className="h-3 w-3" /> Parts replaced
+                          <Cog className="h-3 w-3 text-accent-500" /> Parts Replaced to Fix Issue
                         </p>
                         <div className="flex flex-wrap gap-1.5">
                           {job.parts.map((part, pi) => (

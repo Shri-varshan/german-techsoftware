@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Package, Clock, CheckCircle2, AlertTriangle, Lock, Mic, Gauge, Sparkles, X, FileText, Check } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Package, Clock, CheckCircle2, AlertTriangle, Lock, Mic, Gauge, Sparkles, X, FileText, Check, ClipboardList, Edit3, AlertCircle } from 'lucide-react';
 import { supabase, type Job, type JobPart, type JobLabour, type Vehicle, type Invoice } from '@/lib/supabase';
 import { formatINR, formatDate, maskPlate } from '@/lib/constants';
 import { getCached, setCached, invalidateCache } from '@/lib/cache';
@@ -48,6 +48,29 @@ export default function JobDetailScreen() {
   // Status update
   const [statusUpdating, setStatusUpdating] = useState(false);
 
+  // Customer complaint edit state
+  const [complaintText, setComplaintText] = useState('');
+  const [editingComplaint, setEditingComplaint] = useState(false);
+  const [savingComplaint, setSavingComplaint] = useState(false);
+
+  async function saveComplaint() {
+    if (!job) return;
+    setSavingComplaint(true);
+    try {
+      const trimmed = complaintText.trim();
+      const { error } = await supabase.from('jobs').update({ complaint: trimmed }).eq('id', job.id);
+      if (error) throw error;
+      const updatedJob = { ...job, complaint: trimmed };
+      setJob(updatedJob);
+      setCached(`job_${job.id}`, updatedJob);
+      setEditingComplaint(false);
+    } catch (err: any) {
+      alert('Failed to save complaint: ' + (err.message || 'Unknown error'));
+    } finally {
+      setSavingComplaint(false);
+    }
+  }
+
   useEffect(() => {
     if (!id) return;
     loadJob(id);
@@ -73,14 +96,15 @@ export default function JobDetailScreen() {
     const p = (partsRes.data as JobPart[]) ?? [];
     const l = (labourRes.data as JobLabour[]) ?? [];
     setJob(j);
-    setParts(p);
-    setLabour(l);
-    setPhotos(photosRes.data ?? []);
     if (j) {
+      setComplaintText(j.complaint || '');
       setCached(`job_${jobId}`, j);
       setCached(`job_parts_${jobId}`, p);
       setCached(`job_labour_${jobId}`, l);
     }
+    setParts(p);
+    setLabour(l);
+    setPhotos(photosRes.data ?? []);
     setLoading(false);
   }
 
@@ -682,6 +706,114 @@ Important guidelines for handwritten automotive bills:
             <span>📅 Date: {formatDate(job.job_date)}</span>
           </div>
         </div>
+      </div>
+
+      {/* Customer Complaint / Reported Issues section */}
+      <div className="card space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="h-4 w-4 text-accent-500" />
+            <h3 className="text-sm font-bold uppercase tracking-wide text-graphite-700 dark:text-graphite-300">
+              Customer Complaint / Reported Issues
+            </h3>
+          </div>
+          {!isLocked && !editingComplaint && (
+            <button
+              onClick={() => {
+                setComplaintText(job.complaint || '');
+                setEditingComplaint(true);
+              }}
+              className="btn-ghost text-xs flex items-center gap-1.5"
+            >
+              <Edit3 className="h-3.5 w-3.5 text-accent-500" /> {job.complaint && job.complaint.trim() ? 'Edit Issues' : '+ Add Complaint'}
+            </button>
+          )}
+        </div>
+
+        {editingComplaint && !isLocked ? (
+          <div className="space-y-3 pt-1">
+            <textarea
+              className="input-field text-sm w-full min-h-[90px] p-3 resize-y font-normal"
+              placeholder="e.g. 1. Brake vibration at high speed&#10;2. Periodic maintenance service&#10;3. Suspension noise over bumps..."
+              value={complaintText}
+              onChange={(e) => setComplaintText(e.target.value)}
+              autoFocus
+            />
+
+            {/* Quick suggestion tags */}
+            <div className="flex flex-wrap items-center gap-1.5 text-2xs">
+              <span className="text-graphite-400 font-semibold uppercase">Quick tags:</span>
+              {[
+                'Periodic Service',
+                'Brake Pad Noise',
+                'Oil & Filter Replacement',
+                'Suspension Check',
+                'AC Low Cooling',
+                'Wheel Alignment & Balancing',
+                'Engine Warning Light',
+                'General Inspection'
+              ].map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => {
+                    const current = complaintText.trim();
+                    if (!current) {
+                      setComplaintText(tag);
+                    } else if (!current.includes(tag)) {
+                      setComplaintText(`${current}, ${tag}`);
+                    }
+                  }}
+                  className="rounded-lg bg-graphite-100 hover:bg-graphite-200 dark:bg-graphite-800 dark:hover:bg-graphite-700 text-graphite-700 dark:text-graphite-300 px-2.5 py-1 font-medium transition-colors"
+                >
+                  + {tag}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-2 justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => setEditingComplaint(false)}
+                disabled={savingComplaint}
+                className="btn-ghost text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveComplaint}
+                disabled={savingComplaint}
+                className="btn-primary text-xs"
+              >
+                <Check className="h-4 w-4" /> {savingComplaint ? 'Saving...' : 'Save Issues'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div 
+            onClick={() => {
+              if (!isLocked) {
+                setComplaintText(job.complaint || '');
+                setEditingComplaint(true);
+              }
+            }}
+            className={`rounded-xl border p-3.5 transition-all ${
+              !isLocked ? 'cursor-pointer hover:border-accent-500/40 hover:bg-graphite-50/60 dark:hover:bg-graphite-800/40' : ''
+            } border-graphite-100 bg-graphite-50/50 dark:border-graphite-800 dark:bg-graphite-800/30`}
+          >
+            {job.complaint && job.complaint.trim() ? (
+              <p className="text-sm font-medium text-graphite-900 dark:text-white whitespace-pre-line leading-relaxed">
+                {job.complaint}
+              </p>
+            ) : (
+              <div className="flex items-center justify-between text-graphite-400 py-1 text-xs">
+                <span>No specific complaints recorded yet. Click to record issues reported by customer.</span>
+                {!isLocked && <span className="text-accent-500 font-semibold">+ Add</span>}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Parts section */}
