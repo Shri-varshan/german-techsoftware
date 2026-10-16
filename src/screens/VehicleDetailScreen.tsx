@@ -204,16 +204,8 @@ export default function VehicleDetailScreen() {
         </div>
       </div>
 
-      {/* QR code section */}
-      <div className="card print-only">
-        <div className="text-center">
-          <h2 className="text-lg font-bold">German Tech</h2>
-          <p className="text-xs text-graphite-500">{vehicle.number_plate}</p>
-          <QRCodeDisplay value={qrUrl} size={180} className="mt-4" />
-        </div>
-      </div>
-
-      <div className="card no-print">
+      {/* Permanent QR Code */}
+      <div className="card">
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:gap-6">
           <QRCodeDisplay value={qrUrl} size={180} />
           <div className="flex-1 space-y-3">
