@@ -52,6 +52,51 @@ export default function JobDetailScreen() {
   const [complaintText, setComplaintText] = useState('');
   const [editingComplaint, setEditingComplaint] = useState(false);
   const [savingComplaint, setSavingComplaint] = useState(false);
+  const [listeningComplaint, setListeningComplaint] = useState(false);
+
+  function handleComplaintVoice() {
+    // @ts-ignore
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Your browser does not support voice recognition. Please use Google Chrome.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-IN';
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setListeningComplaint(true);
+      setEditingComplaint(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results?.[0]?.[0]?.transcript;
+      setListeningComplaint(false);
+      if (transcript && transcript.trim()) {
+        const spoken = transcript.trim();
+        setComplaintText((prev) => {
+          if (!prev || !prev.trim()) return spoken;
+          return `${prev.trim()}\n• ${spoken}`;
+        });
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      setListeningComplaint(false);
+      if (event.error !== 'no-speech') {
+        alert("Voice recognition error: " + event.error);
+      }
+    };
+
+    recognition.onend = () => {
+      setListeningComplaint(false);
+    };
+
+    recognition.start();
+  }
 
   async function saveComplaint() {
     if (!job) return;
@@ -717,16 +762,36 @@ Important guidelines for handwritten automotive bills:
               Customer Complaint / Reported Issues
             </h3>
           </div>
-          {!isLocked && !editingComplaint && (
-            <button
-              onClick={() => {
-                setComplaintText(job.complaint || '');
-                setEditingComplaint(true);
-              }}
-              className="btn-ghost text-xs flex items-center gap-1.5"
-            >
-              <Edit3 className="h-3.5 w-3.5 text-accent-500" /> {job.complaint && job.complaint.trim() ? 'Edit Issues' : '+ Add Complaint'}
-            </button>
+          {!isLocked && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleComplaintVoice}
+                disabled={listeningComplaint}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                  listeningComplaint
+                    ? 'bg-signal-red/10 border-signal-red/30 text-signal-red animate-pulse'
+                    : 'bg-transparent border-graphite-200 dark:border-graphite-700 text-graphite-700 dark:text-graphite-300 hover:bg-graphite-50 dark:hover:bg-graphite-800'
+                }`}
+                title="Speak customer complaints"
+              >
+                <Mic className={`h-3.5 w-3.5 ${listeningComplaint ? 'text-signal-red' : 'text-accent-500'}`} />
+                {listeningComplaint ? 'Listening...' : 'Voice Input'}
+              </button>
+
+              {!editingComplaint && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setComplaintText(job.complaint || '');
+                    setEditingComplaint(true);
+                  }}
+                  className="btn-ghost text-xs flex items-center gap-1.5"
+                >
+                  <Edit3 className="h-3.5 w-3.5 text-accent-500" /> {job.complaint && job.complaint.trim() ? 'Edit Issues' : '+ Add Complaint'}
+                </button>
+              )}
+            </div>
           )}
         </div>
 
