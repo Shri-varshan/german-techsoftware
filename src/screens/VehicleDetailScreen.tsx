@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { Car, Phone, Mail, MapPin, QrCode, Printer, MessageCircle, ArrowLeft, Calendar, Gauge, Palette, Fuel, Hash, Edit2, Check, Trash2, ChevronRight } from 'lucide-react';
-import { supabase, type Vehicle, type Job, deleteVehicleCascading } from '@/lib/supabase';
+import { Car, Phone, Mail, MapPin, QrCode, Printer, MessageCircle, ArrowLeft, Calendar, Gauge, Palette, Fuel, Hash, Edit2, Check, Trash2, ChevronRight, Archive, ArchiveRestore, AlertTriangle } from 'lucide-react';
+import { supabase, type Vehicle, type Job, deleteVehicleCascading, isVehicleScrapped, setVehicleScrappedStatus } from '@/lib/supabase';
 import { formatDate, formatINR, maskPlate } from '@/lib/constants';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import QRCode from 'qrcode';
@@ -20,6 +20,32 @@ export default function VehicleDetailScreen() {
   const [ownerPhone, setOwnerPhone] = useState(() => vehicle?.customer?.phone ?? '');
   const [ownerEmail, setOwnerEmail] = useState(() => vehicle?.customer?.email ?? '');
   const [ownerAddress, setOwnerAddress] = useState(() => vehicle?.customer?.address ?? '');
+  const [scrapping, setScrapping] = useState(false);
+  const isScrapped = isVehicleScrapped(vehicle);
+
+  async function handleToggleScrap() {
+    if (!vehicle) return;
+    const willScrap = !isScrapped;
+    const confirmMsg = willScrap
+      ? `Mark ${vehicle.make} ${vehicle.model} (${vehicle.number_plate}) as SCRAPPED / RETIRED?\n\n• This will hide the car from your active vehicle lists.\n• All past job cards, invoices, and revenue records are safely preserved for your accounts.\n• You can reactivate this car anytime.`
+      : `Reactivate ${vehicle.make} ${vehicle.model} (${vehicle.number_plate}) back to active status?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setScrapping(true);
+    const { error } = await setVehicleScrappedStatus(vehicle.id, willScrap);
+    setScrapping(false);
+
+    if (error) {
+      alert('Failed to update vehicle status: ' + error.message);
+    } else {
+      const updated = { ...vehicle, colour: willScrap ? 'scrapped' : '' };
+      setVehicle(updated);
+      setCached(`vehicle_${vehicle.id}`, updated);
+      invalidateCache('vehicles');
+      invalidateCache('dashboard');
+    }
+  }
 
   // New job state
   const [creatingJob, setCreatingJob] = useState(false);
@@ -56,6 +82,10 @@ export default function VehicleDetailScreen() {
   async function createNewJob(e?: React.MouseEvent | React.FormEvent) {
     if (e) e.preventDefault();
     if (!vehicle) return;
+    if (isScrapped) {
+      alert("This vehicle is currently marked as Scrapped / Retired. Please click 'Reactivate' above first if this vehicle is back in service.");
+      return;
+    }
     const { data, error } = await supabase.from('jobs').insert({
       vehicle_id: vehicle.id,
       complaint: 'Service',
@@ -180,24 +210,54 @@ export default function VehicleDetailScreen() {
               <Car className="h-7 w-7 text-graphite-400" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-graphite-900 dark:text-white">{vehicle.make} {vehicle.model}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-graphite-900 dark:text-white">{vehicle.make} {vehicle.model}</h2>
+                {isScrapped && (
+                  <span className="rounded-lg bg-signal-amber/15 px-2.5 py-0.5 text-xs font-bold text-signal-amber border border-signal-amber/30 flex items-center gap-1">
+                    <Archive className="h-3 w-3" /> Scrapped / Retired
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-graphite-500">{maskPlate(vehicle.number_plate)} · {vehicle.year}</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button onClick={printSticker} className="btn-secondary text-xs">
               <Printer className="h-4 w-4" /> Print sticker
+            </button>
+            <button
+              onClick={handleToggleScrap}
+              disabled={scrapping}
+              className={`btn-secondary text-xs flex items-center gap-1.5 ${
+                isScrapped ? 'border-accent-500 text-accent-500 hover:bg-accent-50 dark:hover:bg-accent-950/20' : 'text-graphite-700 dark:text-graphite-300'
+              }`}
+              title={isScrapped ? "Reactivate vehicle back to active fleet" : "Mark as scrapped to safely preserve invoices while hiding from active lists"}
+            >
+              {isScrapped ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+              {scrapping ? 'Updating…' : isScrapped ? 'Reactivate' : 'Mark as Scrapped'}
             </button>
             <button
               onClick={deleteVehicle}
               disabled={deleting}
               className="btn-ghost text-xs text-signal-red hover:bg-signal-red/10 border border-signal-red/20"
-              title="Delete this vehicle"
+              title="Delete this vehicle and all records permanently"
             >
               <Trash2 className="h-4 w-4" /> {deleting ? 'Deleting…' : 'Delete'}
             </button>
           </div>
         </div>
+
+        {isScrapped && (
+          <div className="mt-4 rounded-xl border border-signal-amber/30 bg-signal-amber/10 p-3.5 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-signal-amber shrink-0 mt-0.5" />
+            <div className="text-xs">
+              <p className="font-bold text-signal-amber">Vehicle Marked as Scrapped / Retired</p>
+              <p className="text-graphite-600 dark:text-graphite-300 mt-0.5">
+                All historical job cards, invoices, and accounting revenue are preserved. This vehicle is hidden from active garage searches.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Vehicle specs grid */}
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">

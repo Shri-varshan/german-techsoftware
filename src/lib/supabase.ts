@@ -190,3 +190,25 @@ export async function deleteVehicleCascading(vehicleId: string): Promise<{ error
     return { error: err };
   }
 }
+
+export function isVehicleScrapped(vehicle?: Vehicle | null): boolean {
+  if (!vehicle) return false;
+  return vehicle.colour === 'scrapped' || (vehicle as any).status === 'scrapped';
+}
+
+export async function setVehicleScrappedStatus(vehicleId: string, isScrapped: boolean): Promise<{ error: Error | null }> {
+  try {
+    const { error } = await supabase
+      .from('vehicles')
+      .update({
+        colour: isScrapped ? 'scrapped' : '',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', vehicleId);
+    if (error) throw error;
+    return { error: null };
+  } catch (err: any) {
+    console.error('Failed to update vehicle scrap status:', err);
+    return { error: err };
+  }
+}

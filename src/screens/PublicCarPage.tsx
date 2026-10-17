@@ -92,17 +92,23 @@ export default function PublicCarPage() {
             </div>
           </div>
 
-          {/* Next service */}
-          {(next_service_date || next_service_km) && (
-            <div className="mt-4 flex items-center gap-2 rounded-xl bg-accent-500/5 p-3">
-              <Calendar className="h-4 w-4 text-accent-500" />
-              <p className="text-xs text-graphite-600 dark:text-graphite-300">
-                <span className="font-semibold">Next service due:</span>{' '}
-                {next_service_date ? formatDate(next_service_date) : ''}
-                {next_service_date && next_service_km ? ' or ' : ''}
-                {next_service_km ? `${next_service_km.toLocaleString('en-IN')} km` : ''}
-              </p>
+          {/* Status / Next service */}
+          {vehicle?.colour === 'scrapped' ? (
+            <div className="mt-4 rounded-xl border border-signal-amber/30 bg-signal-amber/10 p-3 text-xs text-signal-amber font-medium">
+              ⚠️ <span className="font-bold">Notice:</span> This vehicle has been retired / scrapped from active workshop service.
             </div>
+          ) : (
+            (next_service_date || next_service_km) && (
+              <div className="mt-4 flex items-center gap-2 rounded-xl bg-accent-500/5 p-3">
+                <Calendar className="h-4 w-4 text-accent-500" />
+                <p className="text-xs text-graphite-600 dark:text-graphite-300">
+                  <span className="font-semibold">Next service due:</span>{' '}
+                  {next_service_date ? formatDate(next_service_date) : ''}
+                  {next_service_date && next_service_km ? ' or ' : ''}
+                  {next_service_km ? `${next_service_km.toLocaleString('en-IN')} km` : ''}
+                </p>
+              </div>
+            )
           )}
 
           {/* Contact buttons */}

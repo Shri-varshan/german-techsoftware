@@ -27,9 +27,9 @@ export default function DashboardScreen() {
       setLoading(true);
     }
     const [vehiclesRes, jobsRes, totalVehiclesRes, totalInvoicesRes, todayRes] = await Promise.all([
-      supabase.from('vehicles').select('*, customer:customers(*)').order('created_at', { ascending: false }).limit(5),
+      supabase.from('vehicles').select('*, customer:customers(*)').neq('colour', 'scrapped').order('created_at', { ascending: false }).limit(5),
       supabase.from('jobs').select('*, vehicle:vehicles(*, customer:customers(*))').in('status', ['received', 'in_progress', 'ready']).order('created_at', { ascending: false }),
-      supabase.from('vehicles').select('id', { count: 'exact', head: true }),
+      supabase.from('vehicles').select('id', { count: 'exact', head: true }).neq('colour', 'scrapped'),
       supabase.from('invoices').select('id', { count: 'exact', head: true }),
       supabase.from('jobs').select('id').gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
     ]);
