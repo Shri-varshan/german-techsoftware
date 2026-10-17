@@ -12,7 +12,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/app/admin', label: 'Admin Dashboard', icon: ShieldCheck, ownerOnly: true },
+  { to: '/app/admin', label: 'Admin Dashboard', icon: ShieldCheck },
   { to: '/app/vehicles', label: 'Vehicles', icon: Car },
   { to: '/app/register', label: 'Register Car', icon: Plus },
   { to: '/app/jobs', label: 'Job Cards', icon: Wrench },
@@ -61,7 +61,7 @@ export default function AppShell({ children, title }: { children?: ReactNode; ti
     }
   }, [dark]);
 
-  const visibleItems = navItems.filter((item) => !item.ownerOnly || profile?.role === 'owner');
+  const visibleItems = navItems.filter((item) => !item.ownerOnly || profile?.role === 'owner' || isGuest);
 
   async function handleSignOut() {
     await signOut();
