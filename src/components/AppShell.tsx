@@ -1,6 +1,6 @@
 import { type ReactNode, useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Car, Plus, Wrench, FileText, Package, Users, BarChart3, Settings, LogOut, Menu, X, Moon, Sun, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Car, Plus, Wrench, FileText, Package, Users, BarChart3, Settings, LogOut, Menu, X, Moon, Sun } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 
 interface NavItem {
@@ -12,7 +12,6 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/app/admin', label: 'Admin Dashboard', icon: ShieldCheck },
   { to: '/app/vehicles', label: 'Vehicles', icon: Car },
   { to: '/app/register', label: 'Register Car', icon: Plus },
   { to: '/app/jobs', label: 'Job Cards', icon: Wrench },
@@ -25,7 +24,6 @@ const navItems: NavItem[] = [
 
 function getTitleFromPath(path: string): string {
   if (path === '/app') return 'Dashboard';
-  if (path === '/app/admin') return 'Admin Dashboard';
   if (path === '/app/register') return 'Register Car';
   if (path === '/app/vehicles') return 'Vehicles';
   if (path.startsWith('/app/vehicles/')) return 'Vehicle Detail';
@@ -61,7 +59,7 @@ export default function AppShell({ children, title }: { children?: ReactNode; ti
     }
   }, [dark]);
 
-  const visibleItems = navItems.filter((item) => !item.ownerOnly || profile?.role === 'owner' || isGuest);
+  const visibleItems = navItems.filter((item) => !item.ownerOnly || profile?.role === 'owner');
 
   async function handleSignOut() {
     await signOut();

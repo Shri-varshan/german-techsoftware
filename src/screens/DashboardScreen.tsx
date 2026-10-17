@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Car, Wrench, FileText, Clock, Plus, Search, TrendingUp, IndianRupee, ShieldCheck } from 'lucide-react';
+import { Car, Wrench, FileText, Clock, Plus, Search, TrendingUp, IndianRupee } from 'lucide-react';
 import { supabase, type Vehicle, type Job, type Invoice } from '@/lib/supabase';
 import { formatINR, formatDate, maskPlate } from '@/lib/constants';
 import { getCached, setCached } from '@/lib/cache';
@@ -57,32 +57,6 @@ export default function DashboardScreen() {
 
   return (
     <div className="space-y-6">
-      {/* Admin Executive Analytics Shortcut */}
-      <Link 
-        to="/app/admin" 
-        className="rounded-2xl border border-accent-500/30 bg-gradient-to-r from-accent-500/10 via-accent-500/5 to-transparent p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-accent-500 transition-all group"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-500 text-white shadow-sm">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-graphite-900 dark:text-white flex flex-wrap items-center gap-2">
-              Admin Executive Dashboard
-              <span className="rounded bg-accent-500/15 px-2 py-0.5 text-2xs font-extrabold text-accent-600 dark:text-accent-400 uppercase">
-                Daily · Weekly (Sun-Sat) · Monthly
-              </span>
-            </h3>
-            <p className="text-xs text-graphite-500 mt-0.5">
-              View registered vehicles, job cards throughput, and billed invoices for any date range.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1 text-xs font-bold text-accent-600 dark:text-accent-400 group-hover:translate-x-1 transition-transform self-end sm:self-auto">
-          Open Analytics →
-        </div>
-      </Link>
-
       {/* Quick stats */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard icon={Car} label="Today's cars" value={String(todayCount)} color="accent" />

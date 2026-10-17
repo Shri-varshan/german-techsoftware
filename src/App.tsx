@@ -18,7 +18,6 @@ import ReportsScreen from '@/screens/ReportsScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
 import PublicCarPage from '@/screens/PublicCarPage';
 import PublicInvoicePage from '@/screens/PublicInvoicePage';
-import AdminDashboardScreen from '@/screens/AdminDashboardScreen';
 import { Wrench } from 'lucide-react';
 
 function ProtectedLayout() {
@@ -84,7 +83,6 @@ function AppRoutes() {
         <Route path="/app/parts" element={<PartsCatalogueScreen />} />
         <Route path="/app/customers" element={<CustomersScreen />} />
         <Route path="/app/reports" element={<ReportsScreen />} />
-        <Route path="/app/admin" element={<AdminDashboardScreen />} />
         <Route path="/app/settings" element={<SettingsScreen />} />
       </Route>
 
