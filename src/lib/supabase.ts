@@ -142,3 +142,51 @@ export interface PublicCarHistory {
     address: string;
   };
 }
+
+export async function deleteVehicleCascading(vehicleId: string): Promise<{ error: Error | null }> {
+  try {
+    // 1. Fetch all jobs belonging to this vehicle
+    const { data: jobs, error: jobsErr } = await supabase
+      .from('jobs')
+      .select('id')
+      .eq('vehicle_id', vehicleId);
+
+    if (jobsErr) throw jobsErr;
+
+    const jobIds = jobs?.map((j) => j.id) ?? [];
+
+    if (jobIds.length > 0) {
+      // 2. Fetch all invoices for these jobs
+      const { data: invoices } = await supabase
+        .from('invoices')
+        .select('id')
+        .in('job_id', jobIds);
+
+      const invoiceIds = invoices?.map((inv) => inv.id) ?? [];
+
+      if (invoiceIds.length > 0) {
+        // Delete payments
+        await supabase.from('payments').delete().in('invoice_id', invoiceIds);
+        // Delete invoices
+        await supabase.from('invoices').delete().in('id', invoiceIds);
+      }
+
+      // Delete job parts, labour, photos
+      await supabase.from('job_parts').delete().in('job_id', jobIds);
+      await supabase.from('job_labour').delete().in('job_id', jobIds);
+      await supabase.from('job_photos').delete().in('job_id', jobIds);
+
+      // Delete jobs
+      await supabase.from('jobs').delete().in('id', jobIds);
+    }
+
+    // 3. Delete the vehicle itself
+    const { error: vehErr } = await supabase.from('vehicles').delete().eq('id', vehicleId);
+    if (vehErr) throw vehErr;
+
+    return { error: null };
+  } catch (err: any) {
+    console.error('Cascading vehicle delete failed:', err);
+    return { error: err };
+  }
+}

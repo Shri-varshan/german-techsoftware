@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { Car, Phone, Mail, MapPin, QrCode, Printer, MessageCircle, ArrowLeft, Calendar, Gauge, Palette, Fuel, Hash, Edit2, Check, Trash2, ChevronRight } from 'lucide-react';
-import { supabase, type Vehicle, type Job } from '@/lib/supabase';
+import { supabase, type Vehicle, type Job, deleteVehicleCascading } from '@/lib/supabase';
 import { formatDate, formatINR, maskPlate } from '@/lib/constants';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import QRCode from 'qrcode';
@@ -31,19 +31,24 @@ export default function VehicleDetailScreen() {
   async function deleteVehicle() {
     if (!vehicle) return;
     const confirmed = window.confirm(
-      `Are you sure you want to delete ${vehicle.make} ${vehicle.model} (${vehicle.number_plate})?\n\nThis will permanently delete this car and its service history.`
+      `Are you sure you want to delete ${vehicle.make} ${vehicle.model} (${vehicle.number_plate})?\n\nThis will permanently delete this car and all of its job cards, invoices, parts, and photos.`
     );
     if (!confirmed) return;
 
     setDeleting(true);
-    const { error } = await supabase.from('vehicles').delete().eq('id', vehicle.id);
+    const { error } = await deleteVehicleCascading(vehicle.id);
     if (error) {
       alert('Failed to delete vehicle: ' + error.message);
       setDeleting(false);
     } else {
       invalidateCache('vehicles');
+      invalidateCache('jobs');
+      invalidateCache('invoices');
       invalidateCache('dashboard');
+      invalidateCache('reports');
+      invalidateCache('customers');
       invalidateCache(`vehicle_${vehicle.id}`);
+      invalidateCache(`vehicle_jobs_${vehicle.id}`);
       navigate('/app/vehicles');
     }
   }

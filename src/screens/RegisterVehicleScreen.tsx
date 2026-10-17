@@ -43,7 +43,6 @@ export default function RegisterVehicleScreen() {
   const [vin, setVin] = useState('');
   const [colour, setColour] = useState('');
   const [fuelType, setFuelType] = useState('');
-  const [currentKm, setCurrentKm] = useState('');
 
   // Duplicate vehicle match
   const [duplicateMatch, setDuplicateMatch] = useState<DuplicateMatch | null>(null);
@@ -190,7 +189,7 @@ export default function RegisterVehicleScreen() {
         vin: vin.trim().toUpperCase(),
         colour,
         fuel_type: fuelType,
-        current_km: parseInt(currentKm) || 0,
+        current_km: 0,
         public_token: generatePublicToken(),
       })
       .select('*')
@@ -377,18 +376,12 @@ export default function RegisterVehicleScreen() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="input-label">Fuel type</label>
-              <select className="input-field" value={fuelType} onChange={(e) => setFuelType(e.target.value)}>
-                <option value="">Select fuel</option>
-                {FUEL_TYPES.map((f) => <option key={f} value={f}>{f}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="input-label">Current km</label>
-              <input className="input-field" type="number" value={currentKm} onChange={(e) => setCurrentKm(e.target.value)} placeholder="0" min="0" />
-            </div>
+          <div>
+            <label className="input-label">Fuel type</label>
+            <select className="input-field" value={fuelType} onChange={(e) => setFuelType(e.target.value)}>
+              <option value="">Select fuel</option>
+              {FUEL_TYPES.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
           </div>
 
           {duplicateMatch && (

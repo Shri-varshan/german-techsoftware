@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Car, Plus, ChevronRight, Trash2, X } from 'lucide-react';
-import { supabase, type Vehicle } from '@/lib/supabase';
+import { supabase, type Vehicle, deleteVehicleCascading } from '@/lib/supabase';
 import { maskPlate } from '@/lib/constants';
-import { getCached, setCached } from '@/lib/cache';
+import { getCached, setCached, invalidateCache } from '@/lib/cache';
 
 export default function VehicleListScreen() {
   const [vehicles, setVehicles] = useState<Vehicle[]>(() => getCached('vehicles') ?? []);
@@ -34,11 +34,11 @@ export default function VehicleListScreen() {
     e.preventDefault();
     e.stopPropagation();
     const confirmed = window.confirm(
-      `Delete ${v.make} ${v.model} (${v.number_plate})?\n\nThis will permanently remove the vehicle and its service records.`
+      `Delete ${v.make} ${v.model} (${v.number_plate})?\n\nThis will permanently remove the vehicle and all of its job cards, invoices, parts, and photos.`
     );
     if (!confirmed) return;
 
-    const { error } = await supabase.from('vehicles').delete().eq('id', v.id);
+    const { error } = await deleteVehicleCascading(v.id);
     if (error) {
       alert('Failed to delete vehicle: ' + error.message);
     } else {
@@ -47,6 +47,14 @@ export default function VehicleListScreen() {
         setCached('vehicles', next);
         return next;
       });
+      invalidateCache('vehicles');
+      invalidateCache('jobs');
+      invalidateCache('invoices');
+      invalidateCache('dashboard');
+      invalidateCache('reports');
+      invalidateCache('customers');
+      invalidateCache(`vehicle_${v.id}`);
+      invalidateCache(`vehicle_jobs_${v.id}`);
     }
   }
 
