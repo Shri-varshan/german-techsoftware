@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Package, Clock, CheckCircle2, AlertTriangle, Lock, Mic, Gauge, Sparkles, X, FileText, Check, ClipboardList, Edit3, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Package, Clock, CheckCircle2, AlertTriangle, Lock, Mic, Gauge, Sparkles, X, FileText, Check, ClipboardList, Edit3, AlertCircle, ExternalLink } from 'lucide-react';
 import { supabase, type Job, type JobPart, type JobLabour, type Vehicle, type Invoice } from '@/lib/supabase';
 import { formatINR, formatDate, maskPlate } from '@/lib/constants';
 import { getCached, setCached, invalidateCache } from '@/lib/cache';
@@ -701,14 +701,29 @@ Important guidelines for handwritten automotive bills:
           <div>
             <h2 className="text-xl font-bold text-graphite-900 dark:text-white">{job.complaint}</h2>
             <p className="text-sm font-medium text-graphite-500 mt-1">
-              {job.vehicle?.make} {job.vehicle?.model} · <span className="font-semibold text-graphite-700 dark:text-graphite-300">{maskPlate(job.vehicle?.number_plate ?? '')}</span> · {job.vehicle?.customer?.name}
+              <Link to={`/app/vehicles/${job.vehicle_id}`} className="hover:underline hover:text-accent-500 transition-colors">
+                {job.vehicle?.make} {job.vehicle?.model} · <span className="font-semibold text-graphite-700 dark:text-graphite-300">{maskPlate(job.vehicle?.number_plate ?? '')}</span> · {job.vehicle?.customer?.name}
+              </Link>
             </p>
           </div>
-          {isLocked && (
-            <div className="flex items-center gap-1.5 rounded-xl bg-signal-green/10 px-3 py-1.5 text-xs font-semibold text-signal-green">
-              <Lock className="h-3.5 w-3.5" /> Completed
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {job.vehicle?.public_token && (
+              <a
+                href={`${window.location.origin}/#/car/${job.vehicle.public_token}`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-ghost text-xs flex items-center gap-1 border border-graphite-200 dark:border-graphite-700 text-graphite-600 dark:text-graphite-300"
+                title="Preview live customer QR view"
+              >
+                <ExternalLink className="h-3.5 w-3.5 text-accent-500" /> Customer QR View
+              </a>
+            )}
+            {isLocked && (
+              <div className="flex items-center gap-1.5 rounded-xl bg-signal-green/10 px-3 py-1.5 text-xs font-semibold text-signal-green">
+                <Lock className="h-3.5 w-3.5" /> Completed
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Current KM Reading Block */}

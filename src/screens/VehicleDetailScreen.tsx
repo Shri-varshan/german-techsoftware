@@ -114,19 +114,21 @@ export default function VehicleDetailScreen() {
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], `qr-${vehicle.number_plate}.png`, { type: 'image/png' });
 
+      const message = `Hello ${vehicle.customer?.name || 'Customer'},\nHere is the permanent live service record & QR link for your ${vehicle.make} ${vehicle.model} (${vehicle.number_plate}):\n${qrUrl}\n\nThank you for choosing German Tech!`;
+
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
           title: `QR Code for ${vehicle.number_plate}`,
-          text: `Hello ${vehicle.customer?.name}, here is the permanent QR code for your ${vehicle.make} ${vehicle.model} (${vehicle.number_plate}).`
+          text: message
         });
       } else {
         const link = document.createElement('a');
         link.href = dataUrl;
         link.download = `qr-${vehicle.number_plate}.png`;
         link.click();
-        const phone = vehicle.customer?.phone?.replace(/\D/g, '');
-        window.open(`https://wa.me/${phone}`, '_blank');
+        const phone = vehicle.customer?.phone?.replace(/\D/g, '') || '';
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
       }
     } catch (err) {
       console.error('Error sharing WhatsApp QR:', err);
