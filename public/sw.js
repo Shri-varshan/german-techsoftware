@@ -1,14 +1,15 @@
 // Service Worker for German Tech Workshop PWA
-const CACHE_NAME = 'gt-workshop-v1';
-
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', (event) => {
-  // Let browser manage network requests directly to ensure live database data is always fresh
+  // Pass through to network for live fresh data
 });
