@@ -104,6 +104,7 @@ export default function RegisterVehicleScreen() {
       if (found) {
         const vPlate = (found.number_plate || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
         const matchedBy = (cleanPlate && vPlate === cleanPlate) ? 'plate' : 'vin';
+        const cust = Array.isArray(found.customer) ? found.customer[0] : found.customer;
         const matchObj: DuplicateMatch = {
           id: found.id,
           make: found.make,
@@ -111,7 +112,7 @@ export default function RegisterVehicleScreen() {
           year: found.year,
           number_plate: found.number_plate,
           vin: found.vin,
-          customer: found.customer,
+          customer: cust ? { name: cust.name, phone: cust.phone } : undefined,
           matchedBy
         };
         setDuplicateMatch(matchObj);
