@@ -83,10 +83,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signIn(email: string, password: string) {
     const cleanEmail = email.trim();
-    if (cleanEmail.toLowerCase() === 'germantech@gmail.com' && password === 'Germantech') {
+    const cleanPassword = password.trim();
+    if (cleanEmail.toLowerCase() === 'germantech@gmail.com' && cleanPassword.toLowerCase() === 'germantech') {
       const ownerProfile: Profile = {
         id: 'owner-germantech',
-        email: 'Germantech@gmail.com',
+        email: 'germantech@gmail.com',
         full_name: 'German Tech Admin',
         role: 'owner',
         created_at: new Date().toISOString(),
@@ -95,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(ownerProfile);
       setIsGuest(false);
       // Attempt supabase login in parallel if configured
-      supabase.auth.signInWithPassword({ email: cleanEmail, password }).catch(() => {});
+      supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword }).catch(() => {});
       return { error: null };
     }
     const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
