@@ -2,10 +2,12 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Wrench, Mail, Lock, User, Shield, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { useSecretAdminGesture } from '@/lib/useSecretAdminGesture';
 
 export default function LoginScreen() {
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
+  const secretGestureProps = useSecretAdminGesture();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('Germantech@gmail.com');
   const [password, setPassword] = useState('Germantech');
@@ -45,7 +47,12 @@ export default function LoginScreen() {
         <div className="absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-accent-700/10 blur-3xl" />
 
         <div className="relative z-10 flex items-center gap-3">
-          <img src="/logo.png" alt="German Tech" className="h-14 w-14 rounded-xl object-contain bg-black/60 p-1 shadow-lg border border-graphite-800" />
+          <img 
+            src="/logo.png" 
+            alt="German Tech" 
+            {...secretGestureProps}
+            className="h-14 w-14 rounded-xl object-contain bg-black/60 p-1 shadow-lg border border-graphite-800 cursor-default select-none" 
+          />
           <div>
             <h1 className="text-xl font-bold text-white">German Tech</h1>
             <p className="text-xs text-graphite-400">Workshop Manager</p>

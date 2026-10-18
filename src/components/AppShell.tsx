@@ -2,6 +2,7 @@ import { type ReactNode, useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { LayoutDashboard, Car, Plus, Wrench, FileText, Package, Users, BarChart3, Settings, LogOut, Menu, X, Moon, Sun } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { useSecretAdminGesture } from '@/lib/useSecretAdminGesture';
 
 interface NavItem {
   to: string;
@@ -43,6 +44,7 @@ export default function AppShell({ children, title }: { children?: ReactNode; ti
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const secretGestureProps = useSecretAdminGesture();
   const [dark, setDark] = useState(() => {
     return localStorage.getItem('gt-theme') === 'dark';
   });
@@ -106,6 +108,12 @@ export default function AppShell({ children, title }: { children?: ReactNode; ti
             <button onClick={() => setSidebarOpen(true)} className="btn-ghost p-2 lg:hidden">
               <Menu className="h-5 w-5" />
             </button>
+            <img 
+              src="/logo.png" 
+              alt="GT" 
+              {...secretGestureProps}
+              className="h-8 w-8 rounded-lg object-contain bg-black p-0.5 shadow-sm border border-graphite-200 dark:border-graphite-800 lg:hidden cursor-default select-none" 
+            />
             <h1 className="text-lg font-bold text-graphite-900 dark:text-white">{displayTitle}</h1>
           </div>
           <div className="flex items-center gap-2">
@@ -168,10 +176,16 @@ function SidebarContent({
   onSignOut: () => void;
   onNavigate?: () => void;
 }) {
+  const secretGestureProps = useSecretAdminGesture();
   return (
     <>
       <div className="flex items-center gap-3 border-b border-graphite-200 px-5 py-4 dark:border-graphite-800">
-        <img src="/logo.png" alt="German Tech" className="h-10 w-10 rounded-lg object-contain bg-black p-0.5" />
+        <img 
+          src="/logo.png" 
+          alt="German Tech" 
+          {...secretGestureProps}
+          className="h-10 w-10 rounded-lg object-contain bg-black p-0.5 cursor-default select-none" 
+        />
         <div>
           <p className="text-sm font-bold text-graphite-900 dark:text-white">German Tech</p>
           <p className="text-2xs text-graphite-500">Workshop Manager</p>
