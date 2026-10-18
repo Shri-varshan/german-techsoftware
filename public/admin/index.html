@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>German Tech — Executive Admin Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2'><path d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/></svg>" />
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+            },
+            dark: {
+              bg: '#0b0f17',
+              card: '#111827',
+              border: '#1f2937',
+              hover: '#1a2333',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- Supabase JS Client v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    @media print {
+      body { background: white !important; color: black !important; }
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      .card { border: 1px solid #ddd !important; box-shadow: none !important; }
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0b0f17; }
+    ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+  </style>
+</head>
+
+<body class="bg-[#0b0f17] text-gray-100 min-h-screen font-sans antialiased selection:bg-brand-500 selection:text-white">
+
+  <!-- Top Navigation & Header -->
+  <header class="border-b border-gray-800 bg-[#0f172a]/80 backdrop-blur sticky top-0 z-40 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        
+        <!-- Logo & Branding -->
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-brand-500/20 text-white font-black text-lg">
+            GT
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base font-extrabold tracking-tight text-white">GERMAN TECH</h1>
+              <span class="px-2 py-0.5 text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full">
+                Owner Only
+              </span>
+            </div>
+            <p class="text-xs text-gray-400">Standalone Executive Management Portal</p>
+          </div>
+        </div>
+
+        <!-- Connection Status & Quick Controls -->
+        <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <div id="connectionStatus" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs font-medium text-emerald-400">
+            <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Live Supabase Connected</span>
+          </div>
+
+          <a href="/" class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">Workshop App</span>
+          </a>
+
+          <button id="refreshBtn" onclick="fetchDashboardData()" class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5" id="refreshIcon"></i>
+            <span>Refresh</span>
+          </button>
+
+          <button onclick="window.print()" class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">Print Report</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Time Filter Toolbar -->
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 shadow-sm no-print">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        
+        <!-- Filter Tabs: Daily / Weekly / Monthly -->
+        <div class="flex items-center gap-1.5 bg-gray-950 p-1 rounded-xl border border-gray-800">
+          <button id="tabDaily" onclick="setPeriod('daily')" class="px-4 py-2 rounded-lg text-xs font-bold transition">
+            Daily
+          </button>
+          <button id="tabWeekly" onclick="setPeriod('weekly')" class="px-4 py-2 rounded-lg text-xs font-bold transition">
+            Weekly (Sun - Sat)
+          </button>
+          <button id="tabMonthly" onclick="setPeriod('monthly')" class="px-4 py-2 rounded-lg text-xs font-bold transition">
+            Monthly
+          </button>
+        </div>
+
+        <!-- Date Navigation Bar -->
+        <div class="flex items-center gap-2">
+          <button onclick="navigatePeriod(-1)" class="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition" title="Previous Period">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+          </button>
+
+          <div class="px-4 py-2 bg-gray-950 rounded-lg border border-gray-800 text-center min-w-[240px]">
+            <span id="periodLabel" class="text-xs sm:text-sm font-bold text-gray-100">Loading...</span>
+            <div id="periodSubLabel" class="text-2xs text-gray-500 font-mono"></div>
+          </div>
+
+          <button onclick="navigatePeriod(1)" class="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition" title="Next Period">
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          </button>
+
+          <button onclick="resetToCurrentPeriod()" class="px-3 py-2 rounded-lg bg-brand-600/10 hover:bg-brand-600/20 text-brand-400 border border-brand-500/20 text-xs font-bold transition">
+            Today / Current
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Active Filter Notice Banner (specifically for Sunday to Saturday confirmation) -->
+    <div id="weeklyNotice" class="hidden rounded-xl border border-brand-500/20 bg-brand-500/5 px-4 py-2.5 flex items-center gap-2 text-xs text-brand-300 no-print">
+      <i data-lucide="calendar" class="w-4 h-4 text-brand-400 shrink-0"></i>
+      <span>Weekly view strictly set from <strong>Sunday (00:00:00)</strong> to <strong>Saturday (23:59:59)</strong>.</span>
+    </div>
+
+    <!-- 3 Core KPI Metric Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      
+      <!-- Card 1: Vehicles Registered -->
+      <div class="bg-gray-900 border border-gray-800 hover:border-gray-700 rounded-2xl p-5 shadow-sm transition">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-gray-400">Vehicles Registered</span>
+          <div class="h-9 w-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+            <i data-lucide="car" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="mt-4 flex items-baseline gap-2">
+          <span id="metricVehicles" class="text-3xl font-extrabold text-white tracking-tight">0</span>
+          <span class="text-xs text-gray-500">vehicles</span>
+        </div>
+        <div class="mt-3 pt-3 border-t border-gray-800/80 flex items-center justify-between text-xs text-gray-400">
+          <span>Active in period: <strong id="metricVehiclesActive" class="text-gray-200">0</strong></span>
+          <span>Scrapped: <strong id="metricVehiclesScrapped" class="text-amber-400">0</strong></span>
+        </div>
+      </div>
+
+      <!-- Card 2: Job Cards Created -->
+      <div class="bg-gray-900 border border-gray-800 hover:border-gray-700 rounded-2xl p-5 shadow-sm transition">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-gray-400">Job Cards Created</span>
+          <div class="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+            <i data-lucide="wrench" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="mt-4 flex items-baseline gap-2">
+          <span id="metricJobs" class="text-3xl font-extrabold text-white tracking-tight">0</span>
+          <span class="text-xs text-gray-500">jobs initiated</span>
+        </div>
+        <div class="mt-3 pt-3 border-t border-gray-800/80 flex items-center justify-between text-xs text-gray-400">
+          <span>Ready / Completed: <strong id="metricJobsCompleted" class="text-emerald-400">0</strong></span>
+          <span>In Workshop: <strong id="metricJobsActive" class="text-amber-400">0</strong></span>
+        </div>
+      </div>
+
+      <!-- Card 3: Invoices & Revenue -->
+      <div class="bg-gray-900 border border-gray-800 hover:border-gray-700 rounded-2xl p-5 shadow-sm transition">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-gray-400">Invoices & Revenue</span>
+          <div class="h-9 w-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <i data-lucide="receipt" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="mt-4 flex items-baseline gap-2">
+          <span id="metricInvoices" class="text-3xl font-extrabold text-white tracking-tight">0</span>
+          <span class="text-xs text-gray-500">invoices billed</span>
+        </div>
+        <div class="mt-3 pt-3 border-t border-gray-800/80 flex items-center justify-between text-xs text-gray-400">
+          <span>Total Billed: <strong id="metricRevenue" class="text-emerald-400 font-bold">₹0</strong></span>
+          <span>Paid: <strong id="metricPaidCount" class="text-gray-200">0</strong></span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Visual Chart Section -->
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5 shadow-sm">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+        <div>
+          <h2 id="chartTitle" class="text-sm font-bold text-gray-100 flex items-center gap-2">
+            <i data-lucide="bar-chart-3" class="w-4 h-4 text-brand-400"></i>
+            Weekly Day-by-Day Breakdown (Sunday to Saturday)
+          </h2>
+          <p id="chartSubtitle" class="text-xs text-gray-500">Comparing vehicles, job cards, and invoices across each day</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="flex items-center gap-1.5 text-xs text-gray-400"><span class="h-2.5 w-2.5 rounded-sm bg-blue-500 inline-block"></span> Vehicles</span>
+          <span class="flex items-center gap-1.5 text-xs text-gray-400"><span class="h-2.5 w-2.5 rounded-sm bg-amber-500 inline-block"></span> Job Cards</span>
+          <span class="flex items-center gap-1.5 text-xs text-gray-400"><span class="h-2.5 w-2.5 rounded-sm bg-emerald-500 inline-block"></span> Invoices</span>
+        </div>
+      </div>
+      <div class="h-64 sm:h-72 w-full relative">
+        <canvas id="performanceChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Detailed Drill-Down Records -->
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-sm">
+      
+      <!-- Records Header & Tabs -->
+      <div class="border-b border-gray-800 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <button id="subtabVehicles" onclick="switchDataTab('vehicles')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">
+            🚗 Registered Vehicles (<span id="countTabVehicles">0</span>)
+          </button>
+          <button id="subtabJobs" onclick="switchDataTab('jobs')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">
+            🔧 Job Cards (<span id="countTabJobs">0</span>)
+          </button>
+          <button id="subtabInvoices" onclick="switchDataTab('invoices')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">
+            🧾 Invoices (<span id="countTabInvoices">0</span>)
+          </button>
+        </div>
+
+        <!-- Table Search & CSV Export -->
+        <div class="flex items-center gap-2">
+          <div class="relative">
+            <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            <input 
+              type="text" 
+              id="tableSearch" 
+              placeholder="Search in table..." 
+              oninput="renderActiveTabTable()"
+              class="pl-8 pr-3 py-1.5 rounded-lg bg-gray-950 border border-gray-800 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-brand-500 w-44 sm:w-56"
+            />
+          </div>
+          <button onclick="exportCurrentTableToCSV()" class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">Export CSV</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Table Container -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-gray-300">
+          <thead class="bg-gray-950/60 text-gray-400 uppercase font-semibold border-b border-gray-800">
+            <tr id="tableHeaderRow">
+              <!-- Dynamically populated -->
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-gray-800">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty State -->
+      <div id="tableEmptyState" class="hidden p-12 text-center">
+        <i data-lucide="inbox" class="w-8 h-8 mx-auto text-gray-600 mb-2"></i>
+        <p class="text-sm font-semibold text-gray-400">No records found for this period</p>
+        <p class="text-xs text-gray-600 mt-1">Try switching periods or clearing your search term.</p>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-xs text-gray-500 border-t border-gray-800/60 no-print">
+    <p>German Tech Multi-Brand Car Service — Private Executive Portal</p>
+    <p class="mt-1 font-mono text-2xs text-gray-600">Database: ngibtviyeglhntzengft.supabase.co</p>
+  </footer>
+
+  <!-- Application Logic -->
+  <script>
+    // 1. Supabase Initialization
+    const SUPABASE_URL = 'https://ngibtviyeglhntzengft.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_MtzIXEtx9aX8BhMg7Kq00w_jxc7XTqF';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // 2. Application State
+    let currentPeriod = 'weekly'; // 'daily' | 'weekly' | 'monthly'
+    let referenceDate = new Date(); // anchor date
+    let activeDataTab = 'vehicles'; // 'vehicles' | 'jobs' | 'invoices'
+
+    let rawVehicles = [];
+    let rawJobs = [];
+    let rawInvoices = [];
+
+    let chartInstance = null;
+
+    // 3. Date Range Calculations (SUNDAY TO SATURDAY strictly for Weekly)
+    function getRangeForPeriod(mode, ref) {
+      const d = new Date(ref);
+      let start, end;
+
+      if (mode === 'daily') {
+        start = new Date(d);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(d);
+        end.setHours(23, 59, 59, 999);
+      } else if (mode === 'weekly') {
+        // In JS: 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+        const dayOfWeek = d.getDay(); 
+        start = new Date(d);
+        start.setDate(d.getDate() - dayOfWeek); // Go back to Sunday
+        start.setHours(0, 0, 0, 0);
+
+        end = new Date(start);
+        end.setDate(start.getDate() + 6); // Go forward to Saturday
+        end.setHours(23, 59, 59, 999);
+      } else if (mode === 'monthly') {
+        start = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+        end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+      }
+
+      return { start, end };
+    }
+
+    function formatDateDisplay(d) {
+      return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function updatePeriodLabel() {
+      const { start, end } = getRangeForPeriod(currentPeriod, referenceDate);
+      const labelEl = document.getElementById('periodLabel');
+      const subLabelEl = document.getElementById('periodSubLabel');
+      const weeklyNotice = document.getElementById('weeklyNotice');
+
+      if (currentPeriod === 'daily') {
+        labelEl.innerText = start.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        subLabelEl.innerText = '1-Day Window';
+        weeklyNotice.classList.add('hidden');
+      } else if (currentPeriod === 'weekly') {
+        const startStr = start.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+        const endStr = end.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        labelEl.innerText = `${startStr} — ${endStr}`;
+        subLabelEl.innerText = 'Sunday 00:00 → Saturday 23:59';
+        weeklyNotice.classList.remove('hidden');
+      } else if (currentPeriod === 'monthly') {
+        labelEl.innerText = start.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+        subLabelEl.innerText = `${formatDateDisplay(start)} — ${formatDateDisplay(end)}`;
+        weeklyNotice.classList.add('hidden');
+      }
+
+      // Update button styling
+      const tabs = ['Daily', 'Weekly', 'Monthly'];
+      tabs.forEach(t => {
+        const key = t.toLowerCase();
+        const btn = document.getElementById(`tab${t}`);
+        if (key === currentPeriod) {
+          btn.className = 'px-4 py-2 rounded-lg text-xs font-bold bg-brand-600 text-white shadow-sm';
+        } else {
+          btn.className = 'px-4 py-2 rounded-lg text-xs font-bold text-gray-400 hover:text-gray-200';
+        }
+      });
+    }
+
+    function setPeriod(mode) {
+      currentPeriod = mode;
+      updatePeriodLabel();
+      fetchDashboardData();
+    }
+
+    function navigatePeriod(step) {
+      const d = new Date(referenceDate);
+      if (currentPeriod === 'daily') {
+        d.setDate(d.getDate() + step);
+      } else if (currentPeriod === 'weekly') {
+        d.setDate(d.getDate() + (step * 7));
+      } else if (currentPeriod === 'monthly') {
+        d.setMonth(d.getMonth() + step);
+      }
+      referenceDate = d;
+      updatePeriodLabel();
+      fetchDashboardData();
+    }
+
+    function resetToCurrentPeriod() {
+      referenceDate = new Date();
+      updatePeriodLabel();
+      fetchDashboardData();
+    }
+
+    // 4. Data Fetching from Supabase
+    async function fetchDashboardData() {
+      const refreshIcon = document.getElementById('refreshIcon');
+      refreshIcon.classList.add('animate-spin');
+
+      const { start, end } = getRangeForPeriod(currentPeriod, referenceDate);
+      const startIso = start.toISOString();
+      const endIso = end.toISOString();
+
+      try {
+        const [vehiclesRes, jobsRes, invoicesRes] = await Promise.all([
+          supabase
+            .from('vehicles')
+            .select('*, customer:customers(*)')
+            .gte('created_at', startIso)
+            .lte('created_at', endIso)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('jobs')
+            .select('*, vehicle:vehicles(*, customer:customers(*))')
+            .gte('created_at', startIso)
+            .lte('created_at', endIso)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('invoices')
+            .select('*, job:jobs(*, vehicle:vehicles(*, customer:customers(*)))')
+            .gte('created_at', startIso)
+            .lte('created_at', endIso)
+            .order('created_at', { ascending: false }),
+        ]);
+
+        rawVehicles = vehiclesRes.data || [];
+        rawJobs = jobsRes.data || [];
+        rawInvoices = invoicesRes.data || [];
+
+        renderKPIs();
+        renderChart();
+        renderActiveTabTable();
+
+        document.getElementById('connectionStatus').innerHTML = `
+          <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+          <span>Live Synced (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })})</span>
+        `;
+      } catch (err) {
+        console.error('Fetch error:', err);
+        document.getElementById('connectionStatus').innerHTML = `
+          <span class="h-2 w-2 rounded-full bg-red-500"></span>
+          <span>Sync Error</span>
+        `;
+      } finally {
+        setTimeout(() => refreshIcon.classList.remove('animate-spin'), 400);
+      }
+    }
+
+    // 5. Render KPIs
+    function renderKPIs() {
+      // Vehicles
+      const totalVehicles = rawVehicles.length;
+      const scrappedVehicles = rawVehicles.filter(v => (v.colour || '').toLowerCase() === 'scrapped').length;
+      const activeVehicles = totalVehicles - scrappedVehicles;
+
+      document.getElementById('metricVehicles').innerText = totalVehicles;
+      document.getElementById('metricVehiclesActive').innerText = activeVehicles;
+      document.getElementById('metricVehiclesScrapped').innerText = scrappedVehicles;
+
+      // Jobs
+      const totalJobs = rawJobs.length;
+      const completedJobs = rawJobs.filter(j => j.status === 'completed' || j.status === 'ready').length;
+      const activeJobs = totalJobs - completedJobs;
+
+      document.getElementById('metricJobs').innerText = totalJobs;
+      document.getElementById('metricJobsCompleted').innerText = completedJobs;
+      document.getElementById('metricJobsActive').innerText = activeJobs;
+
+      // Invoices & Revenue
+      const totalInvoices = rawInvoices.length;
+      const paidInvoices = rawInvoices.filter(i => i.payment_status === 'paid').length;
+      const totalRevenue = rawInvoices.reduce((acc, cur) => acc + (Number(cur.grand_total) || 0), 0);
+
+      document.getElementById('metricInvoices').innerText = totalInvoices;
+      document.getElementById('metricPaidCount').innerText = paidInvoices;
+      document.getElementById('metricRevenue').innerText = '₹' + Math.round(totalRevenue).toLocaleString('en-IN');
+
+      // Update Tab Badges
+      document.getElementById('countTabVehicles').innerText = totalVehicles;
+      document.getElementById('countTabJobs').innerText = totalJobs;
+      document.getElementById('countTabInvoices').innerText = totalInvoices;
+    }
+
+    // 6. Chart.js Visualization
+    function renderChart() {
+      const ctx = document.getElementById('performanceChart').getContext('2d');
+      const { start, end } = getRangeForPeriod(currentPeriod, referenceDate);
+
+      let labels = [];
+      let vCounts = [];
+      let jCounts = [];
+      let iCounts = [];
+
+      if (currentPeriod === 'weekly') {
+        document.getElementById('chartTitle').innerHTML = '<i data-lucide="bar-chart-3" class="w-4 h-4 text-brand-400"></i> Weekly Day-by-Day (Sunday to Saturday)';
+        labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        vCounts = [0, 0, 0, 0, 0, 0, 0];
+        jCounts = [0, 0, 0, 0, 0, 0, 0];
+        iCounts = [0, 0, 0, 0, 0, 0, 0];
+
+        rawVehicles.forEach(v => {
+          const day = new Date(v.created_at).getDay();
+          vCounts[day]++;
+        });
+        rawJobs.forEach(j => {
+          const day = new Date(j.created_at).getDay();
+          jCounts[day]++;
+        });
+        rawInvoices.forEach(i => {
+          const day = new Date(i.created_at).getDay();
+          iCounts[day]++;
+        });
+      } else if (currentPeriod === 'monthly') {
+        document.getElementById('chartTitle').innerHTML = '<i data-lucide="bar-chart-3" class="w-4 h-4 text-brand-400"></i> Monthly Daily Trend';
+        const daysInMonth = end.getDate();
+        labels = Array.from({ length: daysInMonth }, (_, idx) => String(idx + 1));
+        vCounts = Array(daysInMonth).fill(0);
+        jCounts = Array(daysInMonth).fill(0);
+        iCounts = Array(daysInMonth).fill(0);
+
+        rawVehicles.forEach(v => {
+          const day = new Date(v.created_at).getDate() - 1;
+          if (day >= 0 && day < daysInMonth) vCounts[day]++;
+        });
+        rawJobs.forEach(j => {
+          const day = new Date(j.created_at).getDate() - 1;
+          if (day >= 0 && day < daysInMonth) jCounts[day]++;
+        });
+        rawInvoices.forEach(i => {
+          const day = new Date(i.created_at).getDate() - 1;
+          if (day >= 0 && day < daysInMonth) iCounts[day]++;
+        });
+      } else {
+        document.getElementById('chartTitle').innerHTML = '<i data-lucide="bar-chart-3" class="w-4 h-4 text-brand-400"></i> Daily Hourly Activity';
+        labels = ['Morning (6-12)', 'Afternoon (12-16)', 'Evening (16-20)', 'Night (20-6)'];
+        vCounts = [0, 0, 0, 0];
+        jCounts = [0, 0, 0, 0];
+        iCounts = [0, 0, 0, 0];
+
+        function getSlot(dateStr) {
+          const h = new Date(dateStr).getHours();
+          if (h >= 6 && h < 12) return 0;
+          if (h >= 12 && h < 16) return 1;
+          if (h >= 16 && h < 20) return 2;
+          return 3;
+        }
+
+        rawVehicles.forEach(v => vCounts[getSlot(v.created_at)]++);
+        rawJobs.forEach(j => jCounts[getSlot(j.created_at)]++);
+        rawInvoices.forEach(i => iCounts[getSlot(i.created_at)]++);
+      }
+
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Vehicles Registered',
+              data: vCounts,
+              backgroundColor: 'rgba(59, 130, 246, 0.85)',
+              borderRadius: 4,
+            },
+            {
+              label: 'Job Cards Created',
+              data: jCounts,
+              backgroundColor: 'rgba(245, 158, 11, 0.85)',
+              borderRadius: 4,
+            },
+            {
+              label: 'Invoices Billed',
+              data: iCounts,
+              backgroundColor: 'rgba(16, 185, 129, 0.85)',
+              borderRadius: 4,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#111827',
+              borderColor: '#374151',
+              borderWidth: 1,
+              titleFont: { size: 12, weight: 'bold' },
+              padding: 10,
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(55, 65, 81, 0.3)' },
+              ticks: { color: '#9ca3af', font: { size: 11 } }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0, color: '#9ca3af', font: { size: 11 } },
+              grid: { color: 'rgba(55, 65, 81, 0.3)' }
+            }
+          }
+        }
+      });
+      lucide.createIcons();
+    }
+
+    // 7. Drill-Down Tables
+    function switchDataTab(tab) {
+      activeDataTab = tab;
+      const tabs = ['Vehicles', 'Jobs', 'Invoices'];
+      tabs.forEach(t => {
+        const key = t.toLowerCase();
+        const btn = document.getElementById(`subtab${t}`);
+        if (key === tab) {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-600 text-white';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-gray-200';
+        }
+      });
+      renderActiveTabTable();
+    }
+
+    function renderActiveTabTable() {
+      const q = (document.getElementById('tableSearch').value || '').toLowerCase().trim();
+      const thead = document.getElementById('tableHeaderRow');
+      const tbody = document.getElementById('tableBody');
+      const empty = document.getElementById('tableEmptyState');
+
+      tbody.innerHTML = '';
+
+      if (activeDataTab === 'vehicles') {
+        thead.innerHTML = `
+          <th class="px-4 py-3">Plate / ID</th>
+          <th class="px-4 py-3">Make & Model</th>
+          <th class="px-4 py-3">Customer</th>
+          <th class="px-4 py-3">Phone</th>
+          <th class="px-4 py-3">Status</th>
+          <th class="px-4 py-3 text-right">Registered On</th>
+        `;
+
+        const filtered = rawVehicles.filter(v => {
+          if (!q) return true;
+          return (v.number_plate || '').toLowerCase().includes(q) ||
+                 (v.make || '').toLowerCase().includes(q) ||
+                 (v.model || '').toLowerCase().includes(q) ||
+                 (v.customer?.name || '').toLowerCase().includes(q) ||
+                 (v.customer?.phone || '').toLowerCase().includes(q);
+        });
+
+        if (filtered.length === 0) {
+          empty.classList.remove('hidden');
+          return;
+        }
+        empty.classList.add('hidden');
+
+        filtered.forEach(v => {
+          const isScrapped = (v.colour || '').toLowerCase() === 'scrapped';
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-gray-800/40 transition';
+          tr.innerHTML = `
+            <td class="px-4 py-3 font-mono font-bold text-white">${v.number_plate || '—'}</td>
+            <td class="px-4 py-3 font-medium text-gray-200">${v.make || ''} ${v.model || ''}</td>
+            <td class="px-4 py-3 text-gray-300">${v.customer?.name || 'Walk-in'}</td>
+            <td class="px-4 py-3 text-gray-400 font-mono">${v.customer?.phone || '—'}</td>
+            <td class="px-4 py-3">
+              ${isScrapped 
+                ? '<span class="px-2 py-0.5 rounded text-2xs font-extrabold bg-amber-500/15 text-amber-400 border border-amber-500/20">Scrapped</span>'
+                : '<span class="px-2 py-0.5 rounded text-2xs font-extrabold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">Active</span>'}
+            </td>
+            <td class="px-4 py-3 text-right font-mono text-gray-400">${new Date(v.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+      } else if (activeDataTab === 'jobs') {
+        thead.innerHTML = `
+          <th class="px-4 py-3">Job ID</th>
+          <th class="px-4 py-3">Vehicle</th>
+          <th class="px-4 py-3">Complaint / Service</th>
+          <th class="px-4 py-3">Mechanic</th>
+          <th class="px-4 py-3">Status</th>
+          <th class="px-4 py-3 text-right">Created On</th>
+        `;
+
+        const filtered = rawJobs.filter(j => {
+          if (!q) return true;
+          return (j.vehicle?.number_plate || '').toLowerCase().includes(q) ||
+                 (j.complaint || '').toLowerCase().includes(q) ||
+                 (j.assigned_mechanic || '').toLowerCase().includes(q) ||
+                 (j.status || '').toLowerCase().includes(q);
+        });
+
+        if (filtered.length === 0) {
+          empty.classList.remove('hidden');
+          return;
+        }
+        empty.classList.add('hidden');
+
+        filtered.forEach(j => {
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-gray-800/40 transition';
+          tr.innerHTML = `
+            <td class="px-4 py-3 font-mono font-bold text-brand-400">#${(j.id || '').slice(0, 8).toUpperCase()}</td>
+            <td class="px-4 py-3">
+              <div class="font-bold text-white">${j.vehicle?.number_plate || '—'}</div>
+              <div class="text-2xs text-gray-400">${j.vehicle?.make || ''} ${j.vehicle?.model || ''}</div>
+            </td>
+            <td class="px-4 py-3 text-gray-300 max-w-xs truncate">${j.complaint || 'General Service'}</td>
+            <td class="px-4 py-3 text-gray-400">${j.assigned_mechanic || 'Unassigned'}</td>
+            <td class="px-4 py-3">
+              <span class="px-2 py-0.5 rounded text-2xs font-extrabold uppercase bg-gray-800 text-gray-300 border border-gray-700">
+                ${j.status || 'received'}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-right font-mono text-gray-400">${new Date(j.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+      } else if (activeDataTab === 'invoices') {
+        thead.innerHTML = `
+          <th class="px-4 py-3">Invoice #</th>
+          <th class="px-4 py-3">Vehicle / Customer</th>
+          <th class="px-4 py-3">Subtotal</th>
+          <th class="px-4 py-3">GST</th>
+          <th class="px-4 py-3 font-bold text-white">Grand Total</th>
+          <th class="px-4 py-3">Payment</th>
+          <th class="px-4 py-3 text-right">Billed On</th>
+        `;
+
+        const filtered = rawInvoices.filter(i => {
+          if (!q) return true;
+          return (i.invoice_number || '').toLowerCase().includes(q) ||
+                 (i.job?.vehicle?.number_plate || '').toLowerCase().includes(q) ||
+                 (i.payment_status || '').toLowerCase().includes(q);
+        });
+
+        if (filtered.length === 0) {
+          empty.classList.remove('hidden');
+          return;
+        }
+        empty.classList.add('hidden');
+
+        filtered.forEach(i => {
+          const isPaid = i.payment_status === 'paid';
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-gray-800/40 transition';
+          tr.innerHTML = `
+            <td class="px-4 py-3 font-mono font-bold text-emerald-400">${i.invoice_number || 'INV-000'}</td>
+            <td class="px-4 py-3">
+              <div class="font-bold text-white">${i.job?.vehicle?.number_plate || '—'}</div>
+              <div class="text-2xs text-gray-400">${i.job?.vehicle?.customer?.name || 'Customer'}</div>
+            </td>
+            <td class="px-4 py-3 font-mono text-gray-300">₹${Number(i.subtotal || 0).toLocaleString('en-IN')}</td>
+            <td class="px-4 py-3 font-mono text-gray-400">₹${Number(i.gst_total || 0).toLocaleString('en-IN')}</td>
+            <td class="px-4 py-3 font-mono font-extrabold text-white">₹${Number(i.grand_total || 0).toLocaleString('en-IN')}</td>
+            <td class="px-4 py-3">
+              ${isPaid 
+                ? '<span class="px-2 py-0.5 rounded text-2xs font-extrabold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">PAID</span>'
+                : '<span class="px-2 py-0.5 rounded text-2xs font-extrabold bg-red-500/15 text-red-400 border border-red-500/20">UNPAID</span>'}
+            </td>
+            <td class="px-4 py-3 text-right font-mono text-gray-400">${new Date(i.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+    }
+
+    // 8. Export to CSV
+    function exportCurrentTableToCSV() {
+      let csv = '';
+      let filename = `GermanTech_${activeDataTab}_${currentPeriod}_${new Date().toISOString().slice(0, 10)}.csv`;
+
+      if (activeDataTab === 'vehicles') {
+        csv += 'Plate,Make,Model,Customer,Phone,Colour,Status,Created At\n';
+        rawVehicles.forEach(v => {
+          csv += `"${v.number_plate || ''}","${v.make || ''}","${v.model || ''}","${v.customer?.name || ''}","${v.customer?.phone || ''}","${v.colour || ''}","${(v.colour || '').toLowerCase() === 'scrapped' ? 'Scrapped' : 'Active'}","${v.created_at}"\n`;
+        });
+      } else if (activeDataTab === 'jobs') {
+        csv += 'JobID,Plate,Complaint,Mechanic,Status,Created At\n';
+        rawJobs.forEach(j => {
+          csv += `"${j.id}","${j.vehicle?.number_plate || ''}","${(j.complaint || '').replace(/"/g, '""')}","${j.assigned_mechanic || ''}","${j.status || ''}","${j.created_at}"\n`;
+        });
+      } else if (activeDataTab === 'invoices') {
+        csv += 'InvoiceNumber,Plate,Subtotal,Discount,GST,GrandTotal,Status,PaymentMode,Created At\n';
+        rawInvoices.forEach(i => {
+          csv += `"${i.invoice_number || ''}","${i.job?.vehicle?.number_plate || ''}",${i.subtotal || 0},${i.discount || 0},${i.gst_total || 0},${i.grand_total || 0},"${i.payment_status || ''}","${i.payment_mode || ''}","${i.created_at}"\n`;
+        });
+      }
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // 9. Startup & Auto-refresh (Every 30 seconds)
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      switchDataTab('vehicles');
+      setPeriod('weekly'); // Default to Sunday - Saturday weekly mode
+      setInterval(() => {
+        fetchDashboardData();
+      }, 30000);
+    });
+  </script>
+</body>
+</html>
