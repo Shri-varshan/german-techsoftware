@@ -409,7 +409,12 @@
 
   <!-- Application Logic -->
   <script>
-    // 0. Executive Authentication Gate
+    // 1. Supabase Initialization (Declared first)
+    const SUPABASE_URL = 'https://ngibtviyeglhntzengft.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_MtzIXEtx9aX8BhMg7Kq00w_jxc7XTqF';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // 2. Executive Authentication Gate
     const AUTH_KEY = 'gt_admin_auth_v1';
     const ALLOWED_EMAIL = 'germantech@gmail.com';
     const ALLOWED_PASS = 'GermanTech';
@@ -430,85 +435,118 @@
     function togglePasswordVisibility() {
       const pwd = document.getElementById('adminPassword');
       const eye = document.getElementById('eyeIcon');
+      if (!pwd) return;
       if (pwd.type === 'password') {
         pwd.type = 'text';
-        eye.setAttribute('data-lucide', 'eye-off');
+        if (eye) eye.setAttribute('data-lucide', 'eye-off');
       } else {
         pwd.type = 'password';
-        eye.setAttribute('data-lucide', 'eye');
+        if (eye) eye.setAttribute('data-lucide', 'eye');
       }
       lucide.createIcons();
     }
 
     function handleAdminLogin(e) {
-      e.preventDefault();
-      const emailInput = document.getElementById('adminEmail');
-      const passInput = document.getElementById('adminPassword');
-      const remember = document.getElementById('rememberMe').checked;
-      const errorEl = document.getElementById('loginError');
-      const errorText = document.getElementById('loginErrorText');
-      const btn = document.getElementById('loginSubmitBtn');
+      if (e && e.preventDefault) e.preventDefault();
+      try {
+        const emailInput = document.getElementById('adminEmail');
+        const passInput = document.getElementById('adminPassword');
+        const rememberEl = document.getElementById('rememberMe');
+        const remember = rememberEl ? rememberEl.checked : true;
+        const errorEl = document.getElementById('loginError');
+        const errorText = document.getElementById('loginErrorText');
+        const btn = document.getElementById('loginSubmitBtn');
 
-      const email = (emailInput.value || '').trim();
-      const password = passInput.value || '';
+        const email = (emailInput ? emailInput.value : '').trim();
+        const password = (passInput ? passInput.value : '').trim();
 
-      const isEmailValid = email.toLowerCase() === ALLOWED_EMAIL.toLowerCase();
-      const isPassValid = password === ALLOWED_PASS || password.toLowerCase() === ALLOWED_PASS.toLowerCase();
+        const isEmailValid = email.toLowerCase() === ALLOWED_EMAIL.toLowerCase();
+        // Accepts "GermanTech", "germantech", "Germantech" regardless of capitalization
+        const isPassValid = password.toLowerCase() === ALLOWED_PASS.toLowerCase();
 
-      if (isEmailValid && isPassValid) {
-        errorEl.classList.add('hidden');
-        btn.innerHTML = `<span class="inline-block animate-spin mr-1">⌛</span> Verifying...`;
+        if (isEmailValid && isPassValid) {
+          if (errorEl) errorEl.classList.add('hidden');
+          if (btn) btn.innerHTML = `<span class="inline-block animate-spin mr-1">⌛</span> Signing In...`;
 
-        const authPayload = JSON.stringify({
-          authenticated: true,
-          email: email,
-          timestamp: Date.now()
-        });
+          const authPayload = JSON.stringify({
+            authenticated: true,
+            email: email,
+            timestamp: Date.now()
+          });
 
-        if (remember) {
-          localStorage.setItem(AUTH_KEY, authPayload);
+          if (remember) {
+            localStorage.setItem(AUTH_KEY, authPayload);
+          } else {
+            sessionStorage.setItem(AUTH_KEY, authPayload);
+          }
+
+          // Optional Supabase auth sync if account exists
+          try {
+            if (supabase && supabase.auth) {
+              supabase.auth.signInWithPassword({ email, password }).catch(() => {});
+            }
+          } catch (_) {}
+
+          setTimeout(() => {
+            const overlay = document.getElementById('loginOverlay');
+            const app = document.getElementById('appContainer');
+            if (overlay) overlay.classList.add('hidden');
+            if (app) app.classList.remove('hidden');
+            switchDataTab('vehicles');
+            setPeriod('weekly');
+            fetchDashboardData();
+            lucide.createIcons();
+          }, 150);
         } else {
-          sessionStorage.setItem(AUTH_KEY, authPayload);
+          if (errorEl) {
+            errorEl.classList.remove('hidden');
+            if (errorText) errorText.innerText = 'Incorrect email or password. Please verify credentials.';
+          }
+          if (btn) {
+            btn.innerHTML = `<i data-lucide="shield-check" class="w-4 h-4"></i><span>Sign In to Executive Portal</span>`;
+            lucide.createIcons();
+          }
+          if (passInput) {
+            passInput.focus();
+            passInput.select();
+          }
         }
-
-        // Attempt Supabase login in background if auth is registered
-        if (typeof supabase !== 'undefined' && supabase.auth) {
-          supabase.auth.signInWithPassword({ email, password }).catch(() => {});
+      } catch (err) {
+        console.error('Login error:', err);
+        const errorEl = document.getElementById('loginError');
+        const errorText = document.getElementById('loginErrorText');
+        if (errorEl) {
+          errorEl.classList.remove('hidden');
+          if (errorText) errorText.innerText = 'Error: ' + (err.message || err);
         }
-
-        setTimeout(() => {
-          document.getElementById('loginOverlay').classList.add('hidden');
-          document.getElementById('appContainer').classList.remove('hidden');
-          switchDataTab('vehicles');
-          setPeriod('weekly');
-          fetchDashboardData();
+        const btn = document.getElementById('loginSubmitBtn');
+        if (btn) {
+          btn.innerHTML = `<i data-lucide="shield-check" class="w-4 h-4"></i><span>Sign In to Executive Portal</span>`;
           lucide.createIcons();
-        }, 300);
-      } else {
-        errorEl.classList.remove('hidden');
-        errorText.innerText = 'Incorrect email or password. Please verify credentials.';
-        passInput.focus();
-        passInput.select();
+        }
       }
     }
 
     function handleAdminLogout() {
       localStorage.removeItem(AUTH_KEY);
       sessionStorage.removeItem(AUTH_KEY);
-      if (typeof supabase !== 'undefined' && supabase.auth) {
-        supabase.auth.signOut().catch(() => {});
-      }
-      document.getElementById('appContainer').classList.add('hidden');
-      document.getElementById('loginOverlay').classList.remove('hidden');
-      document.getElementById('adminPassword').value = '';
+      try {
+        if (supabase && supabase.auth) {
+          supabase.auth.signOut().catch(() => {});
+        }
+      } catch (_) {}
+      const app = document.getElementById('appContainer');
+      const overlay = document.getElementById('loginOverlay');
+      if (app) app.classList.add('hidden');
+      if (overlay) overlay.classList.remove('hidden');
+      const passInput = document.getElementById('adminPassword');
+      if (passInput) passInput.value = '';
       const btn = document.getElementById('loginSubmitBtn');
-      btn.innerHTML = `<i data-lucide="shield-check" class="w-4 h-4"></i><span>Sign In to Executive Portal</span>`;
+      if (btn) {
+        btn.innerHTML = `<i data-lucide="shield-check" class="w-4 h-4"></i><span>Sign In to Executive Portal</span>`;
+      }
       lucide.createIcons();
     }
-    // 1. Supabase Initialization
-    const SUPABASE_URL = 'https://ngibtviyeglhntzengft.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_MtzIXEtx9aX8BhMg7Kq00w_jxc7XTqF';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // 2. Application State
     let currentPeriod = 'weekly'; // 'daily' | 'weekly' | 'monthly'
