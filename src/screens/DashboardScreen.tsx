@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Car, Wrench, FileText, Clock, Plus, Search, TrendingUp, IndianRupee } from 'lucide-react';
+import { Car, Wrench, FileText, Clock, Plus, Search, TrendingUp, IndianRupee, ChevronRight, X } from 'lucide-react';
 import { supabase, type Vehicle, type Job, type Invoice } from '@/lib/supabase';
 import { formatINR, formatDate, maskPlate } from '@/lib/constants';
 import { getCached, setCached } from '@/lib/cache';
@@ -73,9 +73,18 @@ export default function DashboardScreen() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by plate, phone, or name…"
-            className="input-field pl-12 text-base"
+            placeholder="Search by vehicle number, phone, or customer name…"
+            className="input-field pl-12 pr-10 text-base"
           />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-graphite-400 hover:text-graphite-600 dark:hover:text-graphite-200"
+              title="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
         {search.trim().length >= 2 && (
           <SearchResults query={search.trim()} />
@@ -219,35 +228,104 @@ function SearchResults({ query }: { query: string }) {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from('vehicles')
-        .select('*, customer:customers(*)')
-        .or(`number_plate.ilike.%${query}%,customer.phone.ilike.%${query}%`)
-        .limit(5);
-      if (!cancelled) {
-        setResults(data as Vehicle[] ?? []);
-        setLoading(false);
+      const cleanQ = query.trim();
+      const rawAlphanumeric = cleanQ.replace(/[^A-Za-z0-9]/g, '');
+
+      // Build vehicle search filters (make, model, plate, and wildcard plate)
+      const vehicleFilters: string[] = [
+        `make.ilike.%${cleanQ}%`,
+        `model.ilike.%${cleanQ}%`,
+        `number_plate.ilike.%${cleanQ}%`,
+      ];
+
+      // If user typed alphanumeric without spaces (e.g. TN09BX4455), add wildcard match (%T%N%0%9%B%X%)
+      if (rawAlphanumeric.length >= 2 && rawAlphanumeric.length <= 12) {
+        const wildcard = rawAlphanumeric.split('').join('%');
+        vehicleFilters.push(`number_plate.ilike.%${wildcard}%`);
+      }
+
+      try {
+        const [vehiclesRes, customersRes] = await Promise.all([
+          supabase
+            .from('vehicles')
+            .select('*, customer:customers(*)')
+            .or(vehicleFilters.join(','))
+            .limit(10),
+          supabase
+            .from('customers')
+            .select('*, vehicles:vehicles(*, customer:customers(*))')
+            .or(`phone.ilike.%${cleanQ}%,name.ilike.%${cleanQ}%`)
+            .limit(10),
+        ]);
+
+        if (cancelled) return;
+
+        const matchedMap = new Map<string, Vehicle>();
+
+        if (vehiclesRes.data) {
+          for (const v of vehiclesRes.data as Vehicle[]) {
+            matchedMap.set(v.id, v);
+          }
+        }
+
+        if (customersRes.data) {
+          for (const c of customersRes.data as any[]) {
+            if (c.vehicles && Array.isArray(c.vehicles)) {
+              for (const v of c.vehicles) {
+                if (!matchedMap.has(v.id)) {
+                  matchedMap.set(v.id, { ...v, customer: c });
+                }
+              }
+            }
+          }
+        }
+
+        setResults(Array.from(matchedMap.values()));
+      } catch (err) {
+        console.error('Search error:', err);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [query]);
 
-  if (loading) return <div className="mt-3 text-sm text-graphite-400">Searching…</div>;
-  if (results.length === 0) return <div className="mt-3 text-sm text-graphite-400">No matches found</div>;
+  if (loading) return <div className="mt-3 text-sm text-graphite-400 animate-pulse">Searching vehicles and customers…</div>;
+  if (results.length === 0) return <div className="mt-3 text-sm text-graphite-400">No vehicles or customers found for "{query}"</div>;
 
   return (
-    <div className="mt-3 space-y-1.5">
+    <div className="mt-3 space-y-2">
+      <p className="text-2xs font-bold uppercase tracking-wider text-graphite-400">
+        Found {results.length} {results.length === 1 ? 'result' : 'results'}:
+      </p>
       {results.map((v) => (
         <Link
           key={v.id}
           to={`/app/vehicles/${v.id}`}
-          className="flex items-center justify-between rounded-xl border border-graphite-100 px-3 py-2.5 transition-colors hover:bg-graphite-50 dark:border-graphite-800 dark:hover:bg-graphite-800"
+          className="flex items-center justify-between rounded-xl border border-graphite-200 bg-graphite-50/50 p-3 shadow-sm transition-all hover:border-accent-400 hover:bg-white hover:shadow-md dark:border-graphite-800 dark:bg-graphite-900/60 dark:hover:border-accent-500 dark:hover:bg-graphite-900"
         >
-          <div>
-            <p className="text-sm font-semibold text-graphite-900 dark:text-white">{v.make} {v.model}</p>
-            <p className="text-xs text-graphite-500">{maskPlate(v.number_plate)} · {v.customer?.name}</p>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-500/10 text-accent-600 dark:text-accent-400">
+              <Car className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-graphite-900 dark:text-white">
+                {v.number_plate} <span className="font-medium text-graphite-500">· {v.make} {v.model}</span>
+              </p>
+              <p className="text-xs text-graphite-500">
+                {v.customer?.name ?? 'Walk-in'}
+                {v.customer?.phone ? ` · 📞 ${v.customer.phone}` : ''}
+              </p>
+            </div>
           </div>
-          <TrendingUp className="h-4 w-4 text-graphite-300" />
+          <div className="flex items-center gap-1 text-xs font-semibold text-accent-600 dark:text-accent-400">
+            <span>View</span>
+            <ChevronRight className="h-4 w-4" />
+          </div>
         </Link>
       ))}
     </div>
